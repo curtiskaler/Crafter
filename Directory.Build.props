@@ -1,5 +1,22 @@
 <Project>
     <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+
+        <!-- ImplicitUsings removes unnecessary boilerplate code and dramatically cleans up the top
+          of your code files by automatically including the most common namespaces based on your
+          project type.-->
+        <ImplicitUsings>enable</ImplicitUsings>
+
+        <!-- Keeping nullable reference types enabled is a strongly recommended best practice 
+          for all modern C# development (.NET 6 through .NET 10). 
+          While it requires writing slightly stricter code, it provides a massive benefit: 
+          it allows the compiler to catch potential NullReferenceException bugs at compile
+          time before they ever hit production. -->
+        <Nullable>enable</Nullable>
+        
+    </PropertyGroup>
+
+    <PropertyGroup>
         <!-- Sets the common base output directory to the 'build' folder at the solution level -->
         <BaseOutputPath>$(SolutionDir)build\</BaseOutputPath>
         <OutputPath>$(BaseOutputPath)$(Configuration)\</OutputPath>

@@ -10,7 +10,7 @@ public partial struct Number
     private static StringBuilder ToString(Number number, StringBuilder stringBuilder, IFormatProvider? provider)
     {
         ArgumentNullException.ThrowIfNull(stringBuilder);
-        var info = (NumberFormatInfo)NumberFormatInfo.GetInstance(provider).Clone();
+        NumberFormatInfo info = NumberFormatInfo.GetInstance(provider);
 
         if (number.RawValue.IsZero)
         {
@@ -21,42 +21,42 @@ public partial struct Number
         if (number.IsNegative)
             stringBuilder.Append(info.NegativeSign);
 
-        var divisor = new BigInteger(1);
-        for (BigInteger i = 1; i < number.DigitCount; i++)
-            divisor *= 10;
+        // RawValue's decimal digits ARE the significand's digit string, so ask
+        // BigInteger for them directly instead of peeling them off one at a time
+        // via repeated division/modulus (which was O(digits) BigInteger divisions
+        // per digit produced, i.e. O(digits^2) overall for the whole number).
+        string digits = number.RawValue.ToString(CultureInfo.InvariantCulture);
+        int digitCount = number.DigitCount;
+        int decimalOffset = number.DecimalOffset;
 
-        var dotWritten = false;
-        if (number.DecimalOffset >= number.DigitCount)
+        if (decimalOffset >= digitCount)
         {
             stringBuilder.Append('0');
             stringBuilder.Append(info.NumberDecimalSeparator);
-            dotWritten = true;
 
-            var offset = number.DecimalOffset - 1;
-            while (offset >= number.DigitCount)
-            {
+            for (int i = decimalOffset - digitCount; i > 0; i--)
                 stringBuilder.Append('0');
-                offset--;
-            }
+
+            stringBuilder.Append(digits);
         }
-
-        var divisorIndex = number.DigitCount - number.DecimalOffset;
-        for (BigInteger i = 0; i < number.DigitCount; i++)
+        else
         {
-            if (!dotWritten && i == divisorIndex)
-                stringBuilder.Append(info.NumberDecimalSeparator);
+            var splitIndex = digitCount - decimalOffset;
+            stringBuilder.Append(digits, 0, splitIndex);
 
-            var digitValue = (number.RawValue / divisor) % 10;
-            stringBuilder.Append((char)(digitValue + '0'));
-            divisor /= 10;
+            if (decimalOffset > 0)
+            {
+                stringBuilder.Append(info.NumberDecimalSeparator);
+                stringBuilder.Append(digits, splitIndex, digits.Length - splitIndex);
+            }
         }
 
         return stringBuilder;
     }
 
-    private static BigInteger CountDigits(BigInteger value)
+    private static int CountDigits(BigInteger value)
     {
-        BigInteger count = 0;
+        int count = 0;
 
         while (value > 0)
         {
@@ -67,7 +67,7 @@ public partial struct Number
         return count;
     }
 
-    private static void TrimRight(ref BigInteger decimalOffset, ref BigInteger value, ref BigInteger digitCount)
+    private static void TrimRight(ref int decimalOffset, ref BigInteger value, ref int digitCount)
     {
         while (decimalOffset > 0 && (value % 10) == 0)
         {
@@ -76,8 +76,8 @@ public partial struct Number
             digitCount--;
         }
     }
-    
-    private static BigInteger MakeItHaveThisManyDigits(Number number, BigInteger numDigits)
+
+    private static BigInteger MakeItHaveThisManyDigits(Number number, int numDigits)
     {
         if (number.DecimalOffset == numDigits)
             return number.RawValue; // Already right size. Do nothing.

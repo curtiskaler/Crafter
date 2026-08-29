@@ -16,9 +16,11 @@ public partial struct Number : IFloatingPoint<Number>
     public static Number Tau =>
         Parse("6.28318530717958647692528676655900576839433879875021", NumberFormatInfo.InvariantInfo);
 
-    public int GetExponentByteCount() => DecimalOffset.GetByteCount();
+    // DecimalOffset is a plain int now (see Number.cs), but these members are specified in
+    // terms of BigInteger-style byte/bit counts, so wrap it briefly to reuse that math.
+    public int GetExponentByteCount() => new BigInteger(DecimalOffset).GetByteCount();
 
-    public int GetExponentShortestBitLength() => Convert.ToInt32(DecimalOffset.GetBitLength());
+    public int GetExponentShortestBitLength() => Convert.ToInt32(new BigInteger(DecimalOffset).GetBitLength());
 
     public int GetSignificandBitLength() => Convert.ToInt32(RawValue.GetBitLength());
 
@@ -44,7 +46,7 @@ public partial struct Number : IFloatingPoint<Number>
         // When we say Value = Significand * 10^Exponent, then
         //   the DecimalOffset is the negative of the Exponent.
 
-        var exponent = DecimalOffset;
+        var exponent = new BigInteger(DecimalOffset);
         var sizeInBytes = exponent.GetByteCount();
 
         // Check if the destination span is large enough.

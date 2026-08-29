@@ -23,7 +23,7 @@ public partial struct Number : IComparable, IComparable<Number>
 
         var offsetL = this.DecimalOffset;
         var offsetR = other.DecimalOffset;
-        var maxIndex = BigInteger.Max(offsetL, offsetR);
+        var maxIndex = Math.Max(offsetL, offsetR);
         var intL = MakeItHaveThisManyDigits(this, maxIndex);
         var intR = MakeItHaveThisManyDigits(other, maxIndex);
 
