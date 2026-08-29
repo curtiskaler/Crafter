@@ -12,9 +12,15 @@ work/
 # so that the solution load doesn't fail, but we never want to update it, or even recognize it.
 _no-commit/
 
+
 # ============ NO TOUCHIE BELOW ====================================================
 # ============ NO TOUCHIE BELOW ====================================================
 # ============ NO TOUCHIE BELOW ====================================================
+
+# The .claude folder is there to hold config for Claude AI
+!.ai/
+!.claude/
+CLAUDE.local.md
 
 # User-specific files
 *.suo
