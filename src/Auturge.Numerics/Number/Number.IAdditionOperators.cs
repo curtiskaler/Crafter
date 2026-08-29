@@ -8,7 +8,7 @@ public partial struct Number : IAdditionOperators<Number, Number, Number>
     {
         var offsetL = left.DecimalOffset;
         var offsetR = right.DecimalOffset;
-        var maxIndex = BigInteger.Max(offsetL, offsetR);
+        var maxIndex = Math.Max(offsetL, offsetR);
         var intL = MakeItHaveThisManyDigits(left, maxIndex);
         var intR = MakeItHaveThisManyDigits(right, maxIndex);
 
@@ -51,7 +51,7 @@ public partial struct Number : ISubtractionOperators<Number, Number, Number>
     {
         var offsetL = left.DecimalOffset;
         var offsetR = right.DecimalOffset;
-        var maxIndex = BigInteger.Max(offsetL, offsetR);
+        var maxIndex = Math.Max(offsetL, offsetR);
         var intL = MakeItHaveThisManyDigits(left, maxIndex);
         var intR = MakeItHaveThisManyDigits(right, maxIndex);
 

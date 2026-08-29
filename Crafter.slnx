@@ -12,11 +12,6 @@
         <File Path="wiki/_dev/licenses.md" />
     </Folder>
     <Folder Name="/working files/" />
-    <Folder Name="/_ai/">
-        <File Path="AGENTS.md" />
-        <File Path="CLAUDE.md" />
-    </Folder>
-    <Folder Name="/_ai/rules/" />
 
     <Folder Name="/_config/">
         <File Path=".editorconfig" />
@@ -25,6 +20,9 @@
     </Folder>
     <Project Path="src/_no-commit/_no-commit.csproj">
         <Build Project="false" />
+    </Project>
+    <Project Path="Auturge.AI.csproj">
+        <Build Solution="Debug|*" Project="false" />
     </Project>
     <Project Path="src/Auturge.Common/Auturge.Common.csproj" />
     <Project Path="src/Auturge.Identifiers.Tests/Auturge.Identifiers.Tests.csproj" />

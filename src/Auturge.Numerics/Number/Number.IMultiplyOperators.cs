@@ -10,7 +10,7 @@ public partial struct Number : IMultiplicativeIdentity<Number, Number>,
     public static Number MultiplicativeIdentity => One;
     static Number IMultiplicativeIdentity<Number, Number>.MultiplicativeIdentity => MultiplicativeIdentity;
 
-    internal static readonly BigInteger DefaultFractionalDigitCount = new(8);
+    internal const int DefaultFractionalDigitCount = 8;
 
     public static Number operator *(Number left, Number right)
     {
@@ -31,7 +31,7 @@ public partial struct Number : IMultiplicativeIdentity<Number, Number>,
         return Divide(dividend, divisor, DefaultFractionalDigitCount);
     }
 
-    public static Number Divide(Number dividend, Number divisor, BigInteger fractionalDigits)
+    public static Number Divide(Number dividend, Number divisor, int fractionalDigits)
     {
         if (fractionalDigits < 0)
             throw new ArgumentOutOfRangeException(nameof(fractionalDigits));
@@ -45,7 +45,7 @@ public partial struct Number : IMultiplicativeIdentity<Number, Number>,
                 : throw new DivideByZeroException($"{nameof(divisor)} can only be zero if {nameof(dividend)} is zero.");
         }
 
-        var maxDigitCount = BigInteger.Max(dividend.DecimalOffset, divisor.DecimalOffset);
+        var maxDigitCount = Math.Max(dividend.DecimalOffset, divisor.DecimalOffset);
         var finalFloatCount = maxDigitCount + fractionalDigits;
         var intDividend = MakeItHaveThisManyDigits(dividend, finalFloatCount);
         var intDivisor = MakeItHaveThisManyDigits(divisor, maxDigitCount);
@@ -66,7 +66,7 @@ public partial struct Number : IMultiplicativeIdentity<Number, Number>,
     public static Number operator %(Number dividend, Number divisor) 
         => Remainder(dividend, divisor, 0);
     
-    private static Number Remainder(Number dividend, Number divisor, BigInteger fractionalDigits)
+    private static Number Remainder(Number dividend, Number divisor, int fractionalDigits)
     {
         var divisionResult = Divide(dividend, divisor, fractionalDigits);
         var result = dividend - divisionResult * divisor;

@@ -115,7 +115,7 @@ public partial struct Number // Parsing internals
 
         // if we're here, then we've either found a decimal separator, or we reached the end.
         i += decSep.Length;
-        BigInteger decimalOffset = 0;
+        int decimalOffset = 0;
         while (i < length)
         {
             var c = unsigned[i];

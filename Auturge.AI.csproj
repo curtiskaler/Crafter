@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <!-- Keeps it from compiling an actual DLL 
+        <TargetFramework>netstandard2.0</TargetFramework>
+        -->
+        <EnableDefaultItems>false</EnableDefaultItems>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="AGENTS.md"/>
+
+        <!-- This will show the file inside the project block only if it exists -->
+        <None Include="CLAUDE.md" Condition="Exists('CLAUDE.md')"/>
+        <None Include="CLAUDE.local.md" Condition="Exists('CLAUDE.local.md')"/>
+        <None Include="CURSOR.md" Condition="Exists('CURSOR.md')"/>
+        <None Include=".cursorrules" Condition="Exists('.cursorrules')"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include=".ai\rules\" />
+      <Folder Include=".claude\rules\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Content Include=".claude\settings.local.json" />
+    </ItemGroup>
+</Project>
