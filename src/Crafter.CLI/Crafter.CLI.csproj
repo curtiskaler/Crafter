@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!-- rename the executable in all lowercase, and shorten it for ease-of-use -->
+        <AssemblyName>rt</AssemblyName>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Crafter.Cli</RootNamespace>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Auturge.Common\Auturge.Common.csproj" />
+      <ProjectReference Include="..\Crafter.Model\Crafter.Model.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="System.CommandLine" Version="2.0.9" />
+    </ItemGroup>
+
+</Project>

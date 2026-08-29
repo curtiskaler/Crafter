@@ -1,0 +1,38 @@
+<Solution>
+    <Folder Name="/wiki/">
+        <File Path="wiki/readme.md" />
+    </Folder>
+    <Folder Name="/wiki/features/">
+        <File Path="wiki/features/configuration.md" />
+        <File Path="wiki/features/recipe model.md" />
+        <File Path="wiki/features/urn references.md" />
+    </Folder>
+    <Folder Name="/wiki/_dev/">
+        <File Path="wiki/_dev/dev-setup.md" />
+        <File Path="wiki/_dev/licenses.md" />
+    </Folder>
+    <Folder Name="/working files/" />
+
+    <Folder Name="/_config/">
+        <File Path=".editorconfig" />
+        <File Path=".gitignore" />
+        <File Path="Directory.Build.props" />
+    </Folder>
+    <Project Path="src/_no-commit/_no-commit.csproj">
+        <Build Project="false" />
+    </Project>
+    <Project Path="src/Auturge.Common/Auturge.Common.csproj" />
+    <Project Path="src/Auturge.Identifiers.Tests/Auturge.Identifiers.Tests.csproj" />
+    <Project Path="src/Auturge.Identifiers/Auturge.Identifiers.csproj" />
+    <Project Path="src/Auturge.Numerics.Tests/Auturge.Numerics.Tests.csproj" />
+    <Project Path="src/Auturge.Numerics/Auturge.Numerics.csproj" />
+    <Project Path="src/Auturge.Quantity.Tests/Auturge.Quantity.Tests.csproj" />
+    <Project Path="src/Auturge.Quantity/Auturge.Quantity.csproj" />
+    <Project Path="src/Auturge.Result/Auturge.Result.csproj" />
+    <Project Path="src/Auturge.Stores.Tests/Auturge.Stores.Tests.csproj" />
+    <Project Path="src/Auturge.Stores/Auturge.Stores.csproj" />
+    <Project Path="src/Crafter.CLI/Crafter.CLI.csproj" />
+    <Project Path="src/Crafter.Library/Crafter.Library.csproj" />
+    <Project Path="src/Crafter.Model/Crafter.Model.csproj" />
+    <Project Path="src/Crafter.Model.Tests/Crafter.Model.Tests.csproj" />
+</Solution>

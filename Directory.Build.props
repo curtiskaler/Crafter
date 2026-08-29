@@ -1,0 +1,7 @@
+<Project>
+    <PropertyGroup>
+        <!-- Sets the common base output directory to the 'build' folder at the solution level -->
+        <BaseOutputPath>$(SolutionDir)build\</BaseOutputPath>
+        <OutputPath>$(BaseOutputPath)$(Configuration)\</OutputPath>
+    </PropertyGroup>
+</Project>
