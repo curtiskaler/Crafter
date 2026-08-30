@@ -34,18 +34,17 @@ public readonly struct Flake : IEquatable<Flake>, IComparable<Flake>, IComparabl
     /// <summary> The packed 64-bit identifier. Equality and ordering are defined solely by this. </summary>
     public long Value { get; init; }
 
-    /// <summary> The datacenter component decoded from <see cref="Value"/>. </summary>
+    /// <summary> The datacenter component. </summary>
     public long DataCenterId { get; init; }
 
-    /// <summary> The machine component decoded from <see cref="Value"/>, used to keep concurrent sources from clashing. </summary>
+    /// <summary> The machine component, used to keep concurrent sources from clashing. </summary>
     public long MachineId { get; init; }
 
     /// <summary> The per-source counter that distinguishes flakes generated in the same millisecond. </summary>
     public long Sequence { get; init; }
 
-    /// <summary> The UTC instant the flake was generated, decoded from <see cref="Value"/> (millisecond precision). </summary>
+    /// <summary> The UTC instant the flake was generated (millisecond precision). </summary>
     public DateTime TimeStamp { get; init; }
-
 
     /// <summary> Renders the decoded components; use <see cref="Value"/> for the numeric form. </summary>
     public override string ToString()
@@ -53,9 +52,6 @@ public readonly struct Flake : IEquatable<Flake>, IComparable<Flake>, IComparabl
 
     /// <summary> Unwraps the flake to its packed <see cref="Value"/>. </summary>
     public static implicit operator long(Flake flake) => flake.Value;
-
-    /// <summary> Returns <see cref="ToString"/>. </summary>
-    public static explicit operator string(Flake flake) => flake.ToString();
 
     /// <summary>
     /// Encodes a flake from its components using the ambient <see cref="Config"/>.
