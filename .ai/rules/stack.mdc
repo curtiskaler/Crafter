@@ -1,0 +1,6 @@
+---
+description: Enforces stack compliance
+alwaysApply: true
+---
+
+@stack.md

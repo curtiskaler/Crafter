@@ -2,7 +2,7 @@
 
 # AI Agent Rules
 
-This folder contains **project rules for AI Agents** — 
+The `.ai/rules/` folder contains **project rules for AI Agents** — 
 instructions the AI agent receives automatically when you 
 chat or edit code in this repository. 
 The `.md` and `.mdc` files are the rules themselves; 
