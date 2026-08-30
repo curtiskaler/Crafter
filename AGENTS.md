@@ -28,6 +28,21 @@ work around.
 - NEVER add external dependencies without explicit user approval.
 - NEVER add external dependencies without confirming they map safely into a .NET 9 Standard lifecycle.
 
+## Testing Requirements
+Every time you generate or modify C# code, you must provide a matching test file. Adhere to the following .NET testing standards:
+
+1. Testing Framework: Use NUnit.
+2. Assertion Library: Use NUnit's built-in assertion library.
+3. Mocking Framework: Use Moq.
+
+Test Structure Rules:
+- Name the test class [TargetClass]Tests.
+- Use the Given_When_Then naming convention for test methods (e.g., Withdraw_WhenAmountIsNegative_ThrowsArgumentException).
+- Structure the test body using clean 'Arrange, Act, Assert' blocks.
+- Inject dependencies using constructor mocking—never mock concrete classes unless absolutely necessary.
+- Write isolated unit tests. If external dependencies (like databases or HTTP clients) are involved, use mocks or abstractions rather than live connections.
+- Include a test case for the happy path and at least two edge cases or failure modes.
+
 ## C# Code Style & Architecture Guardrails
 Do not write legacy framework code. Follow these modern C# patterns strictly:
 - Language Features: Utilize C# 12+ idioms including primary constructors, collection expressions (`[]`), and required properties.

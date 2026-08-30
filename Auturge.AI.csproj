@@ -1,3 +1,12 @@
+
+<!-- 
+
+This is a dummy project, that should contain NO code, but reference all the AI config files,
+so that they are viewable/editable in IDEs like Rider or VS.
+    Don't use it to compile code, just for organization.
+
+-->
+
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <!-- Keeps it from compiling an actual DLL 
