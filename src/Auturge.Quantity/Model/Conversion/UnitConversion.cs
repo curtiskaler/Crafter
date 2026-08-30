@@ -3,10 +3,6 @@
 
 using System.Diagnostics;
 using System.Numerics;
-using Auturge.Numerics;
-
-// using System.Numerics;
-// using Auturge.Numerics;
 
 namespace Auturge.Quantity;
 
@@ -34,18 +30,6 @@ public class UnitConversion(Unit sourceUnit, Unit targetUnit) : IUnitConversion,
         var convList = list.Select(it => it.Conversion).ToList();
         Conversion = new Conversion(convList);
     }
-
-    // internal UnitConversion(Unit sourceUnit, Unit targetUnit, object factor)
-    //     : this(sourceUnit, targetUnit, new Conversion(v => v * factor, v => v / factor))
-    // {
-    // }
-
-    // internal UnitConversion(Unit sourceUnit, Unit targetUnit, Number factor)
-    //     : this(sourceUnit, targetUnit, new Conversion<T>(
-    //         v => (new Number(v) * factor).ToType<T>(),
-    //         v => (new Number(v) / factor).ToType<T>()))
-    // {
-    // }
 
     /// <summary>
     /// Determines whether this converts from one unit to the other.
@@ -86,8 +70,6 @@ public class UnitConversion(Unit sourceUnit, Unit targetUnit) : IUnitConversion,
     }
 
     public object Convert(object amount) => Conversion.Execute(amount);
-
-    // public Number Convert(Number amount) => Conversion.Execute(amount);
 
     #region Arithmetic Operators
 

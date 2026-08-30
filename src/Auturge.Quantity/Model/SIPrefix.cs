@@ -4,9 +4,16 @@ using System.Numerics;
 
 namespace Auturge.Quantity;
 
-public class SIPrefix<T> : IHaveNameAndSymbol where T : INumber<T>
+// T is constrained to just the arithmetic SIPrefix<T> actually needs (multiply, divide, and a
+// multiplicative identity for the no-divisor overload below), not the full generic-math surface —
+// any numeric type implementing this small subset can be used, not only the built-in ones.
+public class SIPrefix<T> : IHaveNameAndSymbol
+    where T : IMultiplyOperators<T, T, T>, IDivisionOperators<T, T, T>, IMultiplicativeIdentity<T, T>
 {
-    public SIPrefix(string displayName, string symbol, T factor, T? divisor = default)
+    // Two overloads rather than a `T? divisor = default` parameter: for an interface-only T,
+    // `T?` is a plain non-nullable `T`, so an omitted divisor would silently become `default(T)`
+    // (all-zero-bits) instead of "no divisor effect".
+    public SIPrefix(string displayName, string symbol, T factor, T divisor)
     {
         ArgumentNullException.ThrowIfNull(displayName);
         ArgumentNullException.ThrowIfNull(symbol);
@@ -17,10 +24,10 @@ public class SIPrefix<T> : IHaveNameAndSymbol where T : INumber<T>
         Divisor = divisor;
     }
 
-    // public static SIPrefix<T> CreateInstance(string displayName, string symbol, T factor, T? divisor)
-    // {
-    //     return new SIPrefix<T>(displayName, symbol, factor, divisor);
-    // }
+    public SIPrefix(string displayName, string symbol, T factor)
+        : this(displayName, symbol, factor, T.MultiplicativeIdentity)
+    {
+    }
 
     /// <summary>
     /// The SI prefix name.
@@ -40,6 +47,5 @@ public class SIPrefix<T> : IHaveNameAndSymbol where T : INumber<T>
     /// <summary>
     /// Factor by which the base unit adjusts this prefix.
     /// </summary>
-    public T? Divisor { get; }
+    public T Divisor { get; }
 }
-

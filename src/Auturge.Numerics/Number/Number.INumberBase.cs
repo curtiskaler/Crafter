@@ -121,6 +121,12 @@ public partial struct Number : INumberBase<Number>
             result = new Number(actualValue);
             return true;
         }
+        else if (typeof(TOther) == typeof(BigInteger))
+        {
+            BigInteger actualValue = (BigInteger)(object)value;
+            result = new Number(actualValue);
+            return true;
+        }
         else if (typeof(TOther) == typeof(char))
         {
             char actualValue = (char)(object)value;
@@ -130,68 +136,70 @@ public partial struct Number : INumberBase<Number>
 
         else if (typeof(TOther) == typeof(short))
         {
-            var actualValue = (BigInteger)(object)value;
+            short actualValue = (short)(object)value;
             result = new Number(actualValue);
             return true;
         }
         else if (typeof(TOther) == typeof(int))
         {
-            var actualValue = (BigInteger)(object)value;
+            int actualValue = (int)(object)value;
             result = new Number(actualValue);
             return true;
         }
         else if (typeof(TOther) == typeof(long))
         {
-            var actualValue = (BigInteger)(object)value;
+            long actualValue = (long)(object)value;
             result = new Number(actualValue);
             return true;
         }
         else if (typeof(TOther) == typeof(Int128))
         {
-            var actualValue = (BigInteger)(object)value;
+            Int128 actualValue = (Int128)(object)value;
             result = new Number(actualValue);
             return true;
         }
         else if (typeof(TOther) == typeof(nint))
         {
-            var actualValue = (BigInteger)(object)value;
-            result = new Number(actualValue);
+            // Number has no nint constructor; nint always fits in long.
+            nint actualValue = (nint)(object)value;
+            result = new Number((long)actualValue);
             return true;
         }
         else if (typeof(TOther) == typeof(sbyte))
         {
-            var actualValue = (BigInteger)(object)value;
+            sbyte actualValue = (sbyte)(object)value;
             result = new Number(actualValue);
             return true;
         }
         else if (typeof(TOther) == typeof(ushort))
         {
-            var actualValue = (BigInteger)(object)value;
+            ushort actualValue = (ushort)(object)value;
             result = new Number(actualValue);
             return true;
         }
         else if (typeof(TOther) == typeof(uint))
         {
-            var actualValue = (BigInteger)(object)value;
+            uint actualValue = (uint)(object)value;
             result = new Number(actualValue);
             return true;
         }
         else if (typeof(TOther) == typeof(ulong))
         {
-            var actualValue = (BigInteger)(object)value;
+            ulong actualValue = (ulong)(object)value;
             result = new Number(actualValue);
             return true;
         }
         else if (typeof(TOther) == typeof(UInt128))
         {
-            var actualValue = (BigInteger)(object)value;
+            UInt128 actualValue = (UInt128)(object)value;
             result = new Number(actualValue);
             return true;
         }
         else if (typeof(TOther) == typeof(nuint))
         {
-            var actualValue = (BigInteger)(object)value;
-            result = new Number(actualValue);
+            // Number has no nuint constructor; nuint always fits in ulong.
+            nuint actualValue = (nuint)(object)value;
+            result = new Number((ulong)actualValue);
             return true;
         }
         else if (typeof(TOther) == typeof(decimal))

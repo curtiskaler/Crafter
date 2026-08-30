@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Numerics;
-using Auturge.Numerics;
 
 namespace Auturge.Quantity;
 
@@ -32,13 +31,6 @@ public class UnitConversion<T>(Unit sourceUnit, Unit targetUnit)
 
     internal UnitConversion(Unit sourceUnit, Unit targetUnit, T factor)
         : this(sourceUnit, targetUnit, new Conversion<T>(v => v * factor, v => v / factor))
-    {
-    }
-
-    internal UnitConversion(Unit sourceUnit, Unit targetUnit, Number factor)
-        : this(sourceUnit, targetUnit, new Conversion<T>(
-            v => (new Number(v) * factor).ToType<T>(),
-            v => (new Number(v) / factor).ToType<T>()))
     {
     }
 
@@ -87,8 +79,6 @@ public class UnitConversion<T>(Unit sourceUnit, Unit targetUnit)
 
     public T Convert(T amount) => Conversion.Execute(amount);
 
-    // public Number Convert(Number amount) => Conversion.Execute(amount);
-
     #region Arithmetic Operators
 
     public static UnitConversion<T> operator *(UnitConversion<T> lhs, UnitConversion<T> rhs)
@@ -114,8 +104,20 @@ public class UnitConversion<T>(Unit sourceUnit, Unit targetUnit)
         => new(toInvert.TargetUnit, toInvert.SourceUnit, toInvert.Conversion.Invert());
 
 
-    public static UnitConversion<T> Create(Unit source, Unit target, Func<T, T> conversion, Func<T, T> inversion) 
+    public static UnitConversion<T> Create(Unit source, Unit target, Func<T, T> conversion, Func<T, T> inversion)
         => new(source, target, conversion, inversion);
+
+    /// <summary>
+    /// Creates a conversion from a factor of any type supporting .NET generic math — not just T —
+    /// via <see cref="INumberBase{TSelf}.CreateChecked{TOther}"/>. A static method rather than a
+    /// constructor overload, since constructors can't introduce their own type parameters.
+    /// </summary>
+    public static UnitConversion<T> Create<TFactor>(Unit source, Unit target, TFactor factor)
+        where TFactor : INumberBase<TFactor>
+    {
+        T factorAsT = T.CreateChecked(factor);
+        return new UnitConversion<T>(source, target, v => v * factorAsT, v => v / factorAsT);
+    }
 
     public bool Equals(UnitConversion<T>? other)
     {
