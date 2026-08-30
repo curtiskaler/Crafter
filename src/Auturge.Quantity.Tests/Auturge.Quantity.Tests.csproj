@@ -22,6 +22,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Auturge.Quantity\Auturge.Quantity.csproj" />
+      <ProjectReference Include="..\Auturge.Quantity.Numerics\Auturge.Quantity.Numerics.csproj" />
     </ItemGroup>
 
 </Project>

@@ -111,7 +111,31 @@ public class UnitTests
     // public void Examine_List()
     // {
     //     var list = Units.List;
-    //     
+    //
     //     Assert.That(list.Count, Is.Not.EqualTo(0));
     // }
+
+    // decimal.MaxValue is ~7.9x10^28 — too small for the 10^30 factors below. Rational, backed by
+    // BigInteger, has no such ceiling.
+    [Test]
+    public void Quettameters_WhenBuiltFromQuettaPrefix_HasExactToBaseWithNoOverflow()
+    {
+        // Arrange / Act
+        var unit = Quettameters;
+
+        // Assert
+        Assert.That(unit.Base, Is.EqualTo(Meters));
+        Assert.That(unit.ToBase, Is.EqualTo(new Rational(System.Numerics.BigInteger.Pow(10, 30), 1)));
+    }
+
+    [Test]
+    public void Quectoseconds_WhenBuiltFromQuectoPrefix_HasExactToBaseWithNoOverflow()
+    {
+        // Arrange / Act
+        var unit = Quectoseconds;
+
+        // Assert
+        Assert.That(unit.Base, Is.EqualTo(Seconds));
+        Assert.That(unit.ToBase, Is.EqualTo(new Rational(1, System.Numerics.BigInteger.Pow(10, 30))));
+    }
 }

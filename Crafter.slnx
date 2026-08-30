@@ -29,6 +29,7 @@
     <Project Path="src/Auturge.Identifiers/Auturge.Identifiers.csproj" />
     <Project Path="src/Auturge.Numerics.Tests/Auturge.Numerics.Tests.csproj" />
     <Project Path="src/Auturge.Numerics/Auturge.Numerics.csproj" />
+    <Project Path="src/Auturge.Quantity.Numerics/Auturge.Quantity.Numerics.csproj" />
     <Project Path="src/Auturge.Quantity.Tests/Auturge.Quantity.Tests.csproj" />
     <Project Path="src/Auturge.Quantity/Auturge.Quantity.csproj" />
     <Project Path="src/Auturge.Result/Auturge.Result.csproj" />

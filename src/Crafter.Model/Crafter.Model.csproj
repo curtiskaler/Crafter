@@ -10,7 +10,7 @@
       <ProjectReference Include="..\Auturge.Common\Auturge.Common.csproj" />
       <ProjectReference Include="..\Auturge.Stores\Auturge.Stores.csproj" />
       <ProjectReference Include="..\Auturge.Identifiers\Auturge.Identifiers.csproj" />
-      <ProjectReference Include="..\Auturge.Quantity\Auturge.Quantity.csproj" />
+      <ProjectReference Include="..\Auturge.Quantity.Numerics\Auturge.Quantity.Numerics.csproj" />
     </ItemGroup>
 
 </Project>

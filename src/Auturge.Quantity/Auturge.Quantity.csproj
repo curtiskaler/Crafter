@@ -9,8 +9,8 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Auturge.Identifiers\Auturge.Identifiers.csproj"/>
-        <ProjectReference Include="..\Auturge.Numerics\Auturge.Numerics.csproj"/>
         <InternalsVisibleTo Include="Auturge.Quantity.Tests"/>
+        <InternalsVisibleTo Include="Auturge.Quantity.Numerics"/>
     </ItemGroup>
 
     <ItemGroup>
