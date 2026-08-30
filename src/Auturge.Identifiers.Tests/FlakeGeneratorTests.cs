@@ -8,6 +8,14 @@ public class FlakeGeneratorTests
     private const long _twitterDatacenterOffset = 17;
     private const long _fiveBitMask = 0x1F;
 
+    // A clock the test drives explicitly; it never moves on its own.
+    private sealed class MutableClock(long startMillis) : TimeProvider
+    {
+        private long _millis = startMillis;
+        public override DateTimeOffset GetUtcNow() => DateTimeOffset.FromUnixTimeMilliseconds(_millis);
+        public void Rewind(long millis) => _millis -= millis;
+    }
+
     [Test]
     public void GetNextId_Should_ReturnIncreasingValues_When_CalledRepeatedly()
     {
@@ -71,5 +79,32 @@ public class FlakeGeneratorTests
         Assert.That(flake.DataCenterId, Is.EqualTo(3));
         Assert.That(flake.MachineId, Is.EqualTo(7));
         Assert.That(flake.Sequence, Is.InRange(0, FlakeConfigs.Twitter.MaxSequence));
+    }
+
+    [Test]
+    public void GetNextId_Should_Throw_When_ClockMovesBackwards()
+    {
+        var clock = new MutableClock(1_700_000_000_000L);
+        var generator = new FlakeGenerator(FlakeConfigs.Twitter, 0, 0, clock);
+        generator.GetNextId();
+
+        clock.Rewind(50);
+
+        Assert.That(() => generator.GetNextId(), Throws.InstanceOf<InvalidOperationException>());
+    }
+
+    [Test]
+    public void GetNextId_Should_IncrementSequence_When_ClockStaysInTheSameMillisecond()
+    {
+        var clock = new MutableClock(1_700_000_000_000L);
+        var generator = new FlakeGenerator(FlakeConfigs.Twitter, 0, 0, clock);
+
+        long first = generator.GetNextId();
+        long second = generator.GetNextId();
+        long third = generator.GetNextId();
+
+        Assert.That(first & FlakeConfigs.Twitter.MaxSequence, Is.EqualTo(0));
+        Assert.That(second & FlakeConfigs.Twitter.MaxSequence, Is.EqualTo(1));
+        Assert.That(third & FlakeConfigs.Twitter.MaxSequence, Is.EqualTo(2));
     }
 }

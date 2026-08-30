@@ -110,4 +110,51 @@ public class FlakeConfigTests
         Assert.That(config.Equals("nope"), Is.False);
         Assert.That(config.Equals((object?)null), Is.False);
     }
+
+    [Test]
+    public void Ctor_Should_Throw_When_OutputTypeIsNotLong()
+    {
+        Assert.That(() => new FlakeConfig(typeof(int), 0L, 12, 5, 5),
+            Throws.InstanceOf<ArgumentException>());
+        Assert.That(() => new FlakeConfig(typeof(Int128), 0L, 20, 5, 5),
+            Throws.InstanceOf<ArgumentException>());
+    }
+
+    [Test]
+    public void Ctor_Should_Throw_When_EpochIsNegative()
+    {
+        Assert.That(() => new FlakeConfig(typeof(long), -1L, 12, 5, 5),
+            Throws.InstanceOf<ArgumentException>());
+    }
+
+    [Test]
+    public void Ctor_Should_Throw_When_EpochDateTimeIsBeforeUnixEpoch()
+    {
+        Assert.That(() => new FlakeConfig(typeof(long), new DateTime(1960, 1, 1, 0, 0, 0, DateTimeKind.Utc), 12, 5, 5),
+            Throws.InstanceOf<ArgumentException>());
+    }
+
+    [Test]
+    public void Ctor_Should_Throw_When_SequenceBitsIsZero()
+    {
+        Assert.That(() => new FlakeConfig(typeof(long), 0L, 0, 5, 5),
+            Throws.InstanceOf<ArgumentException>());
+    }
+
+    [Test]
+    public void Ctor_Should_Throw_When_FieldBitsLeaveTooFewTimestampBits()
+    {
+        Assert.That(() => new FlakeConfig(typeof(long), 0L, 20, 6, 6),
+            Throws.InstanceOf<ArgumentException>());
+    }
+
+    [Test]
+    public void Ctor_Should_Allow_ZeroMachineAndDatacenterBits()
+    {
+        var config = new FlakeConfig(typeof(long), 0L, 20, 0, 0);
+
+        Assert.That(config.MaxMachineNum, Is.EqualTo(0));
+        Assert.That(config.MaxDatacenterNum, Is.EqualTo(0));
+        Assert.That(config.TimestampBits, Is.EqualTo(43));
+    }
 }
