@@ -14,7 +14,7 @@ public class FlakeAmbientConfigTests
     [Test]
     public void Config_Should_RoundTripAssignedValue()
     {
-        var custom = new FlakeConfig(typeof(long), 0L, 15, 4, 4);
+        var custom = new FlakeConfig(0L, 15, 4, 4);
 
         Flake.Config = custom;
 
@@ -24,7 +24,7 @@ public class FlakeAmbientConfigTests
     [Test]
     public void Config_Should_ReturnToDefault_When_Reset()
     {
-        Flake.Config = new FlakeConfig(typeof(long), 0L, 15, 4, 4);
+        Flake.Config = new FlakeConfig(0L, 15, 4, 4);
 
         Flake.Configure(FlakeConfigs.Funsies, 0, 0);
 
@@ -34,7 +34,7 @@ public class FlakeAmbientConfigTests
     [Test]
     public void Decode_Should_UseTheReassignedConfig()
     {
-        var custom = new FlakeConfig(typeof(long), 0L, 10, 5, 5);
+        var custom = new FlakeConfig(0L, 10, 5, 5);
         Flake.Config = custom;
         long packed = (3L << custom.MachineOffset) | 42L;
 
@@ -47,7 +47,7 @@ public class FlakeAmbientConfigTests
     [Test]
     public void NewFlake_Should_EncodeWithTheReassignedConfig()
     {
-        var custom = new FlakeConfig(typeof(long), Millis(2020), 10, 5, 5);
+        var custom = new FlakeConfig(Millis(2020), 10, 5, 5);
         Flake.Config = custom;
 
         var decoded = new Flake(Flake.NewFlake());
@@ -72,7 +72,7 @@ public class FlakeAmbientConfigTests
     {
         Flake.Configure(FlakeConfigs.Twitter, dataCenterId: 2, machineId: 9);
 
-        Flake.Config = new FlakeConfig(typeof(long), FlakeConfigs.Twitter.Epoch, 10, 5, 5);
+        Flake.Config = new FlakeConfig(FlakeConfigs.Twitter.Epoch, 10, 5, 5);
 
         var decoded = new Flake(Flake.NewFlake());
         Assert.That(decoded.DataCenterId, Is.EqualTo(2));

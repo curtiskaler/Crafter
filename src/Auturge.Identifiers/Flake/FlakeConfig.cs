@@ -3,26 +3,15 @@
 namespace Auturge.Identifiers;
 
 /// <summary>
-/// Describes how a flake's 64 bits are split between timestamp, datacenter, machine, and
-/// sequence fields, and the epoch the timestamp is measured from.
+/// Describes how a flake's signed 64 bits are split between timestamp, datacenter, machine,
+/// and sequence fields, and the epoch the timestamp is measured from.
 /// </summary>
 public readonly struct FlakeConfig : IEquatable<FlakeConfig>
 {
     /// <summary>
-    /// The numeric type a flake is packed into. Always <c>typeof(long)</c> — the constructor
-    /// rejects anything else.
-    /// </summary>
-    public Type OutputType { get; }
-
-    /// <summary>
-    /// The width of <see cref="OutputType"/> in bits. Always 64.
-    /// </summary>
-    public int BitLength { get; }
-
-    /// <summary>
-    /// The instant past which a timestamp no longer fits in <see cref="TimestampBits"/>.
-    /// At or beyond this point <see cref="FlakeGenerator.GetNextId"/> throws rather than
-    /// wrapping. <see cref="DateTime.MaxValue"/> if it falls outside the representable range.
+    /// The instant past which a timestamp no longer fits in <see cref="TimestampBits"/>. At or
+    /// beyond this point <see cref="FlakeGenerator.GetNextId"/> throws rather than wrapping.
+    /// <see cref="DateTime.MaxValue"/> if it falls outside the representable range.
     /// </summary>
     public DateTime RolloverDate { get; }
 
@@ -72,21 +61,18 @@ public readonly struct FlakeConfig : IEquatable<FlakeConfig>
     /// Creates a flake layout whose epoch is given as a <see cref="DateTime"/> (an
     /// <see cref="DateTimeKind.Unspecified"/> value is read as UTC).
     /// </summary>
-    /// <param name="numericType">Must be <c>typeof(long)</c>.</param>
     /// <param name="epoch">The point timestamps count from. Must be in the past.</param>
     /// <param name="sequenceBits">Bits for the per-millisecond counter; at least 1.</param>
     /// <param name="machineBits">Bits for the machine id; may be 0.</param>
     /// <param name="datacenterBits">Bits for the datacenter id; may be 0.</param>
     /// <exception cref="ArgumentException">
-    /// <paramref name="numericType"/> is not <c>long</c>, or the fields leave fewer than 35
-    /// bits (~1 year) for the timestamp.
+    /// The fields leave fewer than 35 bits (~1 year) for the timestamp.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException">
     /// <paramref name="epoch"/> is before 1970, or <paramref name="sequenceBits"/> is 0.
     /// </exception>
-    public FlakeConfig(Type numericType, DateTime epoch, ushort sequenceBits, ushort machineBits,
-        ushort datacenterBits)
-        : this(numericType, epoch.GetUnixTimeMillis(), sequenceBits, machineBits, datacenterBits)
+    public FlakeConfig(DateTime epoch, ushort sequenceBits, ushort machineBits, ushort datacenterBits)
+        : this(epoch.GetUnixTimeMillis(), sequenceBits, machineBits, datacenterBits)
     {
     }
 
@@ -95,7 +81,6 @@ public readonly struct FlakeConfig : IEquatable<FlakeConfig>
     /// Creates a flake layout: a signed 64-bit id split into a timestamp offset from
     /// <paramref name="epoch"/>, then datacenter, machine, and sequence fields.
     /// </summary>
-    /// <param name="numericType">Must be <c>typeof(long)</c>.</param>
     /// <param name="epoch">
     /// The point timestamps count from, as non-negative Unix milliseconds. Must be in the past.
     /// </param>
@@ -103,23 +88,20 @@ public readonly struct FlakeConfig : IEquatable<FlakeConfig>
     /// <param name="machineBits">Bits for the machine id; may be 0.</param>
     /// <param name="datacenterBits">Bits for the datacenter id; may be 0.</param>
     /// <exception cref="ArgumentException">
-    /// <paramref name="numericType"/> is not <c>long</c>, or the fields leave fewer than 35
-    /// bits (~1 year) for the timestamp.
+    /// The fields leave fewer than 35 bits (~1 year) for the timestamp.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException">
     /// <paramref name="epoch"/> is negative, or <paramref name="sequenceBits"/> is 0.
     /// </exception>
-    public FlakeConfig(Type numericType, long epoch, ushort sequenceBits, ushort machineBits, ushort datacenterBits)
+    public FlakeConfig(long epoch, ushort sequenceBits, ushort machineBits, ushort datacenterBits)
     {
-        ValidateInputs(numericType, epoch, sequenceBits, machineBits, datacenterBits);
+        ValidateInputs(epoch, sequenceBits, machineBits, datacenterBits);
 
-        OutputType = numericType;
-        BitLength = 64; // ValidateInputs guarantees numericType is long.
         Epoch = epoch;
         SequenceBits = sequenceBits;
         MachineBits = machineBits;
         DatacenterBits = datacenterBits;
-        TimestampBits = BitLength - (SequenceBits + MachineBits + DatacenterBits) - 1;
+        TimestampBits = 64 - (SequenceBits + MachineBits + DatacenterBits) - 1;
         RolloverDate = TimeUtils.FindRolloverDateTime(epoch, TimestampBits);
     }
 
@@ -127,19 +109,8 @@ public readonly struct FlakeConfig : IEquatable<FlakeConfig>
     // rolls over inside its first year, which is never intentional.
     private const int _minimumTimestampBits = 35;
 
-    private static void ValidateInputs(Type outputType, long epoch, int sequenceBits, int machineBits, int datacenterBits)
+    private static void ValidateInputs(long epoch, int sequenceBits, int machineBits, int datacenterBits)
     {
-        // Flake and FlakeGenerator pack every id into a signed 64-bit long — `long`
-        // arithmetic, `1L`/`1U` shift masks, one reserved sign bit. No other width
-        // actually round-trips, so reject it here instead of letting a wider or
-        // narrower type silently produce truncated ids.
-        if (outputType != typeof(long))
-        {
-            throw new ArgumentException(
-                $"Flake ids are packed into a signed 64-bit long; output type '{outputType}' is not supported.",
-                nameof(outputType));
-        }
-
         if (epoch < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(epoch), epoch,
@@ -168,30 +139,26 @@ public readonly struct FlakeConfig : IEquatable<FlakeConfig>
 
     #region Equality
 
+    // RolloverDate and TimestampBits are derived from Epoch + the three bit widths, so those
+    // four fields are the whole identity.
+    /// <inheritdoc/>
     public bool Equals(FlakeConfig other)
-    {
-        return OutputType == other.OutputType
-               && BitLength == other.BitLength
-               && RolloverDate.Equals(other.RolloverDate)
-               && Epoch == other.Epoch
-               && SequenceBits == other.SequenceBits
-               && MachineBits == other.MachineBits
-               && DatacenterBits == other.DatacenterBits
-               && TimestampBits == other.TimestampBits;
-    }
+        => Epoch == other.Epoch
+           && SequenceBits == other.SequenceBits
+           && MachineBits == other.MachineBits
+           && DatacenterBits == other.DatacenterBits;
 
-    public override bool Equals(object? obj)
-    {
-        return obj is FlakeConfig other && Equals(other);
-    }
+    /// <inheritdoc/>
+    public override bool Equals(object? obj) => obj is FlakeConfig other && Equals(other);
 
+    /// <inheritdoc/>
     public override int GetHashCode()
-    {
-        return HashCode.Combine(OutputType, BitLength, RolloverDate, Epoch, SequenceBits, MachineBits, DatacenterBits,
-            TimestampBits);
-    }
+        => HashCode.Combine(Epoch, SequenceBits, MachineBits, DatacenterBits);
 
+    /// <summary>Compares two layouts by epoch and field widths.</summary>
     public static bool operator ==(FlakeConfig x, FlakeConfig y) => x.Equals(y);
+
+    /// <summary>Compares two layouts by epoch and field widths.</summary>
     public static bool operator !=(FlakeConfig x, FlakeConfig y) => !(x == y);
 
     #endregion Equality

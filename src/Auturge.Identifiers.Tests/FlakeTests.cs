@@ -50,7 +50,7 @@ public class FlakeTests
     [Test]
     public void Ctor_Should_DecodeComponents_When_GivenExplicitConfig()
     {
-        var config = new FlakeConfig(typeof(long), 0L, 12, 5, 5);
+        var config = new FlakeConfig(0L, 12, 5, 5);
         long value = (500L << config.TimestampOffset)
                      | (3L << config.DatacenterOffset)
                      | (7L << config.MachineOffset)
