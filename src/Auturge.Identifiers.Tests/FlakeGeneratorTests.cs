@@ -128,7 +128,7 @@ public class FlakeGeneratorTests
     [Test]
     public void GetNextId_Should_Throw_When_ClockIsBeforeTheConfiguredEpoch()
     {
-        var config = new FlakeConfig(typeof(long), Millis(2025), 12, 5, 5);
+        var config = new FlakeConfig(Millis(2025), 12, 5, 5);
         var generator = new FlakeGenerator(config, 0, 0, new MutableClock(Millis(2020)));
 
         Assert.That(() => generator.GetNextId(), Throws.InstanceOf<InvalidOperationException>());
@@ -137,7 +137,7 @@ public class FlakeGeneratorTests
     [Test]
     public void GetNextId_Should_Throw_When_ClockIsPastTheRolloverDate()
     {
-        var config = new FlakeConfig(typeof(long), 0L, 12, 5, 5); // 41 timestamp bits, rolls over ~2039
+        var config = new FlakeConfig(0L, 12, 5, 5); // 41 timestamp bits, rolls over ~2039
         var generator = new FlakeGenerator(config, 0, 0, new MutableClock(Millis(2100)));
 
         Assert.That(() => generator.GetNextId(), Throws.InstanceOf<InvalidOperationException>());
@@ -146,7 +146,7 @@ public class FlakeGeneratorTests
     [Test]
     public void GetNextId_Should_Succeed_When_ClockIsInsideTheConfiguredWindow()
     {
-        var config = new FlakeConfig(typeof(long), Millis(2020), 12, 5, 5);
+        var config = new FlakeConfig(Millis(2020), 12, 5, 5);
         var generator = new FlakeGenerator(config, 0, 0, new MutableClock(Millis(2024)));
 
         long id = generator.GetNextId();
@@ -159,7 +159,7 @@ public class FlakeGeneratorTests
     {
         long epoch = Millis(2020);
         long t = epoch + 1_000;
-        var config = new FlakeConfig(typeof(long), epoch, 1, 0, 0); // MaxSequence == 1
+        var config = new FlakeConfig(epoch, 1, 0, 0); // MaxSequence == 1
         var generator = new FlakeGenerator(config, 0, 0, new ScriptedClock(t, t, t, t + 1));
 
         long first = generator.GetNextId();

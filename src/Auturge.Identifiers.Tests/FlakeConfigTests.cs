@@ -7,7 +7,7 @@ public class FlakeConfigTests
     [Test]
     public void Epoch_Should_MatchUnixMillisOfEpochDate_When_ConstructedFromDateTime()
     {
-        var config = new FlakeConfig(typeof(long), new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc), 12, 5, 5);
+        var config = new FlakeConfig(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc), 12, 5, 5);
 
         Assert.That(config.Epoch, Is.EqualTo(1735689600000L));
     }
@@ -15,7 +15,7 @@ public class FlakeConfigTests
     [Test]
     public void Epoch_Should_IgnoreLocalTimeOfDay_When_ConstructedFromUtcMidnight()
     {
-        var config = new FlakeConfig(typeof(long), new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc), 12, 5, 5);
+        var config = new FlakeConfig(new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc), 12, 5, 5);
 
         Assert.That(config.Epoch, Is.EqualTo(946684800000L));
     }
@@ -23,7 +23,7 @@ public class FlakeConfigTests
     [Test]
     public void RolloverDate_Should_BeDecadesAfterEpoch_When_TimestampBitsAreLarge()
     {
-        var config = new FlakeConfig(typeof(long), 0L, 12, 5, 5);
+        var config = new FlakeConfig(0L, 12, 5, 5);
 
         Assert.That(config.RolloverDate.Year, Is.GreaterThan(2030));
     }
@@ -37,7 +37,7 @@ public class FlakeConfigTests
     [Test]
     public void MaxValues_Should_MatchBitWidths_When_Configured()
     {
-        var config = new FlakeConfig(typeof(long), 0L, 12, 5, 5);
+        var config = new FlakeConfig(0L, 12, 5, 5);
 
         Assert.That(config.MaxSequence, Is.EqualTo(4095));
         Assert.That(config.MaxMachineNum, Is.EqualTo(31));
@@ -47,7 +47,7 @@ public class FlakeConfigTests
     [Test]
     public void Offsets_Should_StackFromLeastSignificantField_When_Configured()
     {
-        var config = new FlakeConfig(typeof(long), 0L, 12, 5, 5);
+        var config = new FlakeConfig(0L, 12, 5, 5);
 
         Assert.That(config.SequenceOffset, Is.EqualTo(0));
         Assert.That(config.MachineOffset, Is.EqualTo(12));
@@ -58,8 +58,8 @@ public class FlakeConfigTests
     [Test]
     public void Equals_Should_ReturnTrue_When_ConstructedWithSameParameters()
     {
-        var a = new FlakeConfig(typeof(long), 0L, 12, 5, 5);
-        var b = new FlakeConfig(typeof(long), 0L, 12, 5, 5);
+        var a = new FlakeConfig(0L, 12, 5, 5);
+        var b = new FlakeConfig(0L, 12, 5, 5);
 
         Assert.That(a.Equals(b), Is.True);
         Assert.That(a == b, Is.True);
@@ -70,8 +70,8 @@ public class FlakeConfigTests
     [Test]
     public void Equals_Should_ReturnFalse_When_SequenceBitsDiffer()
     {
-        var a = new FlakeConfig(typeof(long), 0L, 12, 5, 5);
-        var b = new FlakeConfig(typeof(long), 0L, 11, 5, 5);
+        var a = new FlakeConfig(0L, 12, 5, 5);
+        var b = new FlakeConfig(0L, 11, 5, 5);
 
         Assert.That(a == b, Is.False);
         Assert.That(a != b, Is.True);
@@ -80,8 +80,8 @@ public class FlakeConfigTests
     [Test]
     public void Equals_Should_ReturnFalse_When_EpochDiffers()
     {
-        var a = new FlakeConfig(typeof(long), 0L, 12, 5, 5);
-        var b = new FlakeConfig(typeof(long), 1_000_000L, 12, 5, 5);
+        var a = new FlakeConfig(0L, 12, 5, 5);
+        var b = new FlakeConfig(1_000_000L, 12, 5, 5);
 
         Assert.That(a.Equals(b), Is.False);
     }
@@ -89,8 +89,8 @@ public class FlakeConfigTests
     [Test]
     public void Equals_Should_ReturnTrue_When_EpochGivenAsDateTimeOrEquivalentMillis()
     {
-        var fromDate = new FlakeConfig(typeof(long), new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc), 12, 5, 5);
-        var fromMillis = new FlakeConfig(typeof(long), 1735689600000L, 12, 5, 5);
+        var fromDate = new FlakeConfig(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc), 12, 5, 5);
+        var fromMillis = new FlakeConfig(1735689600000L, 12, 5, 5);
 
         Assert.That(fromDate, Is.EqualTo(fromMillis));
         Assert.That(fromDate.GetHashCode(), Is.EqualTo(fromMillis.GetHashCode()));
@@ -105,53 +105,44 @@ public class FlakeConfigTests
     [Test]
     public void Equals_Should_ReturnFalse_When_ComparedWithNullOrNonConfig()
     {
-        var config = new FlakeConfig(typeof(long), 0L, 12, 5, 5);
+        var config = new FlakeConfig(0L, 12, 5, 5);
 
         Assert.That(config.Equals("nope"), Is.False);
         Assert.That(config.Equals((object?)null), Is.False);
     }
 
     [Test]
-    public void Ctor_Should_Throw_When_OutputTypeIsNotLong()
-    {
-        Assert.That(() => new FlakeConfig(typeof(int), 0L, 12, 5, 5),
-            Throws.InstanceOf<ArgumentException>());
-        Assert.That(() => new FlakeConfig(typeof(Int128), 0L, 20, 5, 5),
-            Throws.InstanceOf<ArgumentException>());
-    }
-
-    [Test]
     public void Ctor_Should_Throw_When_EpochIsNegative()
     {
-        Assert.That(() => new FlakeConfig(typeof(long), -1L, 12, 5, 5),
+        Assert.That(() => new FlakeConfig(-1L, 12, 5, 5),
             Throws.InstanceOf<ArgumentException>());
     }
 
     [Test]
     public void Ctor_Should_Throw_When_EpochDateTimeIsBeforeUnixEpoch()
     {
-        Assert.That(() => new FlakeConfig(typeof(long), new DateTime(1960, 1, 1, 0, 0, 0, DateTimeKind.Utc), 12, 5, 5),
+        Assert.That(() => new FlakeConfig(new DateTime(1960, 1, 1, 0, 0, 0, DateTimeKind.Utc), 12, 5, 5),
             Throws.InstanceOf<ArgumentException>());
     }
 
     [Test]
     public void Ctor_Should_Throw_When_SequenceBitsIsZero()
     {
-        Assert.That(() => new FlakeConfig(typeof(long), 0L, 0, 5, 5),
+        Assert.That(() => new FlakeConfig(0L, 0, 5, 5),
             Throws.InstanceOf<ArgumentException>());
     }
 
     [Test]
     public void Ctor_Should_Throw_When_FieldBitsLeaveTooFewTimestampBits()
     {
-        Assert.That(() => new FlakeConfig(typeof(long), 0L, 20, 6, 6),
+        Assert.That(() => new FlakeConfig(0L, 20, 6, 6),
             Throws.InstanceOf<ArgumentException>());
     }
 
     [Test]
     public void Ctor_Should_Allow_ZeroMachineAndDatacenterBits()
     {
-        var config = new FlakeConfig(typeof(long), 0L, 20, 0, 0);
+        var config = new FlakeConfig(0L, 20, 0, 0);
 
         Assert.That(config.MaxMachineNum, Is.EqualTo(0));
         Assert.That(config.MaxDatacenterNum, Is.EqualTo(0));
