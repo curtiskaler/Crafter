@@ -11,8 +11,8 @@ public sealed class FlakeGenerator
     // ... and this only really supports configs based on longs.
     // ... so if you want a config based on int, you'll need to deal with that.
 
-    private static long _dataCenterId;
-    private static long _machineId;
+    private readonly long _dataCenterId;
+    private readonly long _machineId;
 
     private readonly FlakeConfig _config;
     private long _sequence;
@@ -46,8 +46,8 @@ public sealed class FlakeGenerator
 
     public Flake NewFlake()
     {
-        var value = GetNextId();
-        return new Flake(value);
+        long value = GetNextId();
+        return new Flake(value, _config);
     }
 
     /// <summary>
