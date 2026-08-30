@@ -21,7 +21,7 @@
     <Project Path="src/_no-commit/_no-commit.csproj">
         <Build Project="false" />
     </Project>
-    <Project Path="Auturge.AI.csproj">
+    <Project Path=".ai/Auturge.AI.csproj">
         <Build Solution="Debug|*" Project="false" />
     </Project>
     <Project Path="src/Auturge.Common/Auturge.Common.csproj" />

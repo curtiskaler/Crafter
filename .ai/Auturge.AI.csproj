@@ -1,0 +1,38 @@
+
+<!-- 
+
+This is a dummy project, that should contain NO code, but reference all the AI config files,
+so that they are viewable/editable in IDEs like Rider or VS.
+    Don't use it to compile code, just for organization.
+
+-->
+
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <!-- Keeps it from compiling an actual DLL 
+        <TargetFramework>netstandard2.0</TargetFramework>
+        -->
+        <EnableDefaultItems>false</EnableDefaultItems>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\AGENTS.md"/>
+
+        <!-- This will show the file inside the project block only if it exists -->
+        <None Include="..\CLAUDE.md" Condition="Exists('..\CLAUDE.md')"/>
+        <None Include="..\CLAUDE.local.md" Condition="Exists('..\CLAUDE.local.md')"/>
+        <None Include="..\CURSOR.md" Condition="Exists('..\CURSOR.md')"/>
+        <None Include="..\.cursorrules" Condition="Exists('..\.cursorrules')"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Content Include="RULES_README.md" />
+      <Content Include="rules\comments.md" />
+      <Content Include="rules\comments.mdc" />
+      <Content Include="rules\stack.md" />
+      <Content Include="rules\stack.mdc" />
+      <Content Include="rules\testing.md" />
+      <Content Include="rules\testing.mdc" />
+      <Content Include="..\.claude\settings.local.json" />
+    </ItemGroup>
+</Project>
