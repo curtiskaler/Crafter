@@ -11,25 +11,37 @@ namespace Auturge.Identifiers;
 /// </summary>
 public readonly struct Flake : IEquatable<Flake>, IComparable<Flake>, IComparable<long>
 {
-    private static FlakeConfig _config = FlakeConfigs.Funsies;
-
-    /// <summary>
-    /// The bit layout used to encode and decode flakes when no configuration is supplied
-    /// explicitly. This is process-wide; assigning a new value also rebuilds the generator
-    /// behind <see cref="NewFlake"/> (resetting its datacenter and machine ids to zero).
-    /// </summary>
-    public static FlakeConfig Config
+    // A config and the generator that matches it travel together as one immutable object,
+    // swapped by a single volatile reference write. Every reader (the decode constructors,
+    // NewFlake) takes one snapshot, so a concurrent reassignment of Config can never be
+    // seen as a torn FlakeConfig struct or as a generator built for a different layout.
+    private sealed class Ambient(FlakeConfig config)
     {
-        get => _config;
-        set
-        {
-            if (_config == value) return;
-            _config = value;
-            Generator = new FlakeGenerator(_config);
-        }
+        public FlakeConfig Config { get; } = config;
+        public FlakeGenerator Generator { get; } = new(config);
     }
 
-    private static FlakeGenerator Generator { get; set; } = new(Config);
+    private static volatile Ambient _ambient = new(FlakeConfigs.Funsies);
+
+    /// <summary>
+    /// The layout used to encode and decode flakes when no configuration is passed
+    /// explicitly, and the layout used by <see cref="NewFlake"/>. Process-wide.
+    /// </summary>
+    /// <remarks>
+    /// Intended to be set once at start-up. Assigning a new value also replaces the generator
+    /// behind <see cref="NewFlake"/> (its datacenter and machine ids reset to zero). Individual
+    /// reads and writes are thread-safe, but flakes produced under one layout cannot be decoded
+    /// under another.
+    /// </remarks>
+    public static FlakeConfig Config
+    {
+        get => _ambient.Config;
+        set
+        {
+            if (_ambient.Config == value) return;
+            _ambient = new Ambient(value);
+        }
+    }
 
     /// <summary> The packed 64-bit identifier. Equality and ordering are defined solely by this. </summary>
     public long Value { get; init; }
@@ -63,28 +75,32 @@ public readonly struct Flake : IEquatable<Flake>, IComparable<Flake>, IComparabl
     /// <exception cref="ArgumentOutOfRangeException">A component lies outside the range the configuration can represent.</exception>
     public Flake(long sequence, long timestamp, long dataCenterId, long machineId)
     {
-        if (dataCenterId > _config.MaxDatacenterNum || dataCenterId < 0)
+        // Take a single snapshot so a concurrent Config reassignment can't make the range
+        // checks below disagree with the field widths used for packing.
+        FlakeConfig config = Config;
+
+        if (dataCenterId > config.MaxDatacenterNum || dataCenterId < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(dataCenterId),
-                $@"dataCenterId can't be greater than {_config.MaxDatacenterNum} or less than 0");
+                $@"dataCenterId can't be greater than {config.MaxDatacenterNum} or less than 0");
         }
 
-        if (machineId > _config.MaxMachineNum || machineId < 0)
+        if (machineId > config.MaxMachineNum || machineId < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(machineId),
-                $@"machineId can't be greater than {_config.MaxMachineNum} or less than 0");
+                $@"machineId can't be greater than {config.MaxMachineNum} or less than 0");
         }
 
-        if (sequence > _config.MaxSequence || sequence < 0)
+        if (sequence > config.MaxSequence || sequence < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(sequence),
-                $@"sequence can't be greater than {_config.MaxSequence} or less than 0");
+                $@"sequence can't be greater than {config.MaxSequence} or less than 0");
         }
 
         // A timestamp outside [epoch, epoch + 2^TimestampBits) would silently overflow
         // into the neighbouring fields (or the sign bit) when packed below.
-        long msSinceEpoch = timestamp - _config.Epoch;
-        long maxMsSinceEpoch = (1L << _config.TimestampBits) - 1;
+        long msSinceEpoch = timestamp - config.Epoch;
+        long maxMsSinceEpoch = (1L << config.TimestampBits) - 1;
         if (msSinceEpoch < 0 || msSinceEpoch > maxMsSinceEpoch)
         {
             throw new ArgumentOutOfRangeException(nameof(timestamp),
@@ -95,9 +111,9 @@ public readonly struct Flake : IEquatable<Flake>, IComparable<Flake>, IComparabl
         MachineId = machineId;
         Sequence = sequence;
 
-        Value = (msSinceEpoch << _config.TimestampOffset)
-                | (dataCenterId << _config.DatacenterOffset)
-                | (machineId << _config.MachineOffset)
+        Value = (msSinceEpoch << config.TimestampOffset)
+                | (dataCenterId << config.DatacenterOffset)
+                | (machineId << config.MachineOffset)
                 | sequence;
 
         TimeStamp = DateTimeOffset.FromUnixTimeMilliseconds(timestamp).DateTime;
@@ -106,7 +122,7 @@ public readonly struct Flake : IEquatable<Flake>, IComparable<Flake>, IComparabl
     /// <summary>
     /// Decodes a flake value with the ambient <see cref="Config"/>.
     /// </summary>
-    public Flake(long value) : this(value, _config)
+    public Flake(long value) : this(value, Config)
     {
     }
 
@@ -136,7 +152,12 @@ public readonly struct Flake : IEquatable<Flake>, IComparable<Flake>, IComparabl
     /// <summary>
     /// Generates the next identifier as a raw 64-bit value, using the ambient <see cref="Config"/>.
     /// </summary>
-    public static long NewFlake() => Generator.GetNextId();
+    /// <exception cref="InvalidOperationException">
+    /// The clock has moved backwards since the previous id, or currently reads outside the
+    /// window the ambient <see cref="Config"/> can encode (before its epoch or past its
+    /// rollover date).
+    /// </exception>
+    public static long NewFlake() => _ambient.Generator.GetNextId();
 
     #region IEquality
 

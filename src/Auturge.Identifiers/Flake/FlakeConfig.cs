@@ -3,7 +3,8 @@
 namespace Auturge.Identifiers;
 
 /// <summary>
-/// The configuration of the flake.
+/// Describes how a flake's 64 bits are split between timestamp, datacenter, machine, and
+/// sequence fields, and the epoch the timestamp is measured from.
 /// </summary>
 public readonly struct FlakeConfig : IEquatable<FlakeConfig>
 {
@@ -18,12 +19,15 @@ public readonly struct FlakeConfig : IEquatable<FlakeConfig>
     public int BitLength { get; }
 
     /// <summary>
-    /// The date and time at which this flake configuration rolls over to zero. 
+    /// The instant past which a timestamp no longer fits in <see cref="TimestampBits"/>.
+    /// At or beyond this point <see cref="FlakeGenerator.GetNextId"/> throws rather than
+    /// wrapping. <see cref="DateTime.MaxValue"/> if it falls outside the representable range.
     /// </summary>
     public DateTime RolloverDate { get; }
 
     /// <summary>
-    /// The starting timestamp.
+    /// The point the timestamp counts from, as Unix milliseconds. Must be non-negative and
+    /// in the past.
     /// </summary>
     public long Epoch { get; }
 
@@ -86,6 +90,22 @@ public readonly struct FlakeConfig : IEquatable<FlakeConfig>
     public int TimestampOffset => DatacenterOffset + DatacenterBits;
 
 
+    /// <summary>
+    /// Creates a flake layout whose epoch is given as a <see cref="DateTime"/> (an
+    /// <see cref="DateTimeKind.Unspecified"/> value is read as UTC).
+    /// </summary>
+    /// <param name="numericType">Must be <c>typeof(long)</c>.</param>
+    /// <param name="epoch">The point timestamps count from. Must be in the past.</param>
+    /// <param name="sequenceBits">Bits for the per-millisecond counter; at least 1.</param>
+    /// <param name="machineBits">Bits for the machine id; may be 0.</param>
+    /// <param name="datacenterBits">Bits for the datacenter id; may be 0.</param>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="numericType"/> is not <c>long</c>, or the fields leave fewer than 35
+    /// bits (~1 year) for the timestamp.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="epoch"/> is before 1970, or <paramref name="sequenceBits"/> is 0.
+    /// </exception>
     public FlakeConfig(Type numericType, DateTime epoch, ushort sequenceBits, ushort machineBits,
         ushort datacenterBits)
         : this(numericType, epoch.GetUnixTimeMillis(), sequenceBits, machineBits, datacenterBits)
@@ -93,6 +113,24 @@ public readonly struct FlakeConfig : IEquatable<FlakeConfig>
     }
 
 
+    /// <summary>
+    /// Creates a flake layout: a signed 64-bit id split into a timestamp offset from
+    /// <paramref name="epoch"/>, then datacenter, machine, and sequence fields.
+    /// </summary>
+    /// <param name="numericType">Must be <c>typeof(long)</c>.</param>
+    /// <param name="epoch">
+    /// The point timestamps count from, as non-negative Unix milliseconds. Must be in the past.
+    /// </param>
+    /// <param name="sequenceBits">Bits for the per-millisecond counter; at least 1.</param>
+    /// <param name="machineBits">Bits for the machine id; may be 0.</param>
+    /// <param name="datacenterBits">Bits for the datacenter id; may be 0.</param>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="numericType"/> is not <c>long</c>, or the fields leave fewer than 35
+    /// bits (~1 year) for the timestamp.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="epoch"/> is negative, or <paramref name="sequenceBits"/> is 0.
+    /// </exception>
     public FlakeConfig(Type numericType, long epoch, ushort sequenceBits, ushort machineBits, ushort datacenterBits)
     {
         ValidateInputs(numericType, epoch, sequenceBits, machineBits, datacenterBits);

@@ -3,7 +3,8 @@
 namespace Auturge.Identifiers;
 
 /// <summary>
-/// The flake factory.
+/// Produces monotonically increasing snowflake ids for one datacenter/machine pair.
+/// A single instance is thread-safe; use one per source.
 /// </summary>
 public sealed class FlakeGenerator
 {
@@ -15,27 +16,39 @@ public sealed class FlakeGenerator
 
     private readonly FlakeConfig _config;
     private readonly TimeProvider _time;
+    private readonly long _maxMsSinceEpoch;
     private long _sequence;
     private long _lastStamp = -1L;
 
     private readonly Lock _lockObj = new();
 
+    /// <summary>
+    /// Creates a single-source generator using <see cref="FlakeConfigs.SnowFlake"/>.
+    /// </summary>
     public FlakeGenerator() : this(FlakeConfigs.SnowFlake)
     {
     }
 
     /// <summary>
-    /// Creates a generator for the given <paramref name="config"/> and source ids.
+    /// Creates a generator for the given layout and source ids.
     /// </summary>
+    /// <param name="config">Bit layout to use; <see langword="null"/> selects <see cref="FlakeConfigs.Twitter"/>.</param>
+    /// <param name="datacenterId">Datacenter id, in <c>[0, config.MaxDatacenterNum]</c>.</param>
+    /// <param name="machineId">Machine id, in <c>[0, config.MaxMachineNum]</c>.</param>
     /// <param name="timeProvider">
     /// Clock used for id timestamps; defaults to <see cref="TimeProvider.System"/>. Exposed
     /// primarily so tests can control the clock.
     /// </param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="datacenterId"/> or <paramref name="machineId"/> is outside the range the
+    /// layout allows.
+    /// </exception>
     public FlakeGenerator(FlakeConfig? config, long datacenterId = 0, long machineId = 0,
         TimeProvider? timeProvider = null)
     {
         _config = config ?? FlakeConfigs.Twitter;
         _time = timeProvider ?? TimeProvider.System;
+        _maxMsSinceEpoch = (1L << _config.TimestampBits) - 1;
 
         if (datacenterId > _config.MaxDatacenterNum || datacenterId < 0)
         {
@@ -53,6 +66,10 @@ public sealed class FlakeGenerator
         _machineId = machineId;
     }
 
+    /// <summary>
+    /// Generates the next id and returns it as a decoded <see cref="Flake"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">See <see cref="GetNextId"/>.</exception>
     public Flake NewFlake()
     {
         long value = GetNextId();
@@ -63,9 +80,10 @@ public sealed class FlakeGenerator
     /// Generates the next id.
     /// </summary>
     /// <exception cref="InvalidOperationException">
-    /// The clock has moved backwards since the previous id was issued, so uniqueness can no
-    /// longer be guaranteed. Callers that expect transient clock corrections may catch this
-    /// and retry after a short delay.
+    /// The clock has moved backwards since the previous id was issued, or it currently reads
+    /// outside the window this configuration can encode (before the epoch, or past the
+    /// rollover date). Either way uniqueness / correctness can no longer be guaranteed;
+    /// callers expecting transient clock corrections may catch this and retry.
     /// </exception>
     public long GetNextId()
     {
@@ -88,6 +106,19 @@ public sealed class FlakeGenerator
                         + $"{_lastStamp}); refusing to generate ids that could collide with ones already issued.");
                 }
 
+                // The timestamp field only holds an offset from the epoch that fits in
+                // TimestampBits. If the clock is before the epoch (negative offset) or past
+                // the rollover point, `msSinceEpoch << TimestampOffset` below would spill into
+                // an adjacent field or the sign bit and yield a corrupt (often negative) id.
+                long msSinceEpoch = timestamp - _config.Epoch;
+                if (msSinceEpoch < 0 || msSinceEpoch > _maxMsSinceEpoch)
+                {
+                    throw new InvalidOperationException(
+                        $"Clock reads {timestamp} ms, outside the range this configuration can encode "
+                        + $"({_config.Epoch}..{_config.Epoch + _maxMsSinceEpoch} ms, rollover "
+                        + $"{_config.RolloverDate:yyyy-MM-dd}): it is before the epoch or past the rollover point.");
+                }
+
                 if (_lastStamp == timestamp)
                 {
                     // Same millisecond: advance the sequence, wrapping to 0 past MaxSequence.
@@ -107,7 +138,6 @@ public sealed class FlakeGenerator
                 }
 
                 _lastStamp = timestamp;
-                long msSinceEpoch = timestamp - _config.Epoch;
 
                 return (msSinceEpoch << _config.TimestampOffset)
                        | (_dataCenterId << _config.DatacenterOffset)
