@@ -6,22 +6,16 @@ namespace Auturge.Identifiers;
 public class ResourceLink<T>(Reference<T> reference, Uri link)
     : Reference<T>(reference), IEquatable<ResourceLink<T>>
 {
-    public Uri Link { get; } = link;
+    public Uri Link { get; } = link ?? throw new ArgumentNullException(nameof(link));
 
-    public bool Equals(ResourceLink<T>? other)
-    {
-        if (other is null) return false;
-        if (ReferenceEquals(this, other)) return true;
-        return base.Equals(other) && Link.Equals(other.Link);
-    }
+    public bool Equals(ResourceLink<T>? other) => Equals((object?)other);
 
-    public override bool Equals(object? obj)
-    {
-        if (obj is null) return false;
-        if (ReferenceEquals(this, obj)) return true;
-        if (obj.GetType() != GetType()) return false;
-        return Equals((ResourceLink<T>)obj);
-    }
+    // Reference<T>.Equals(object) has already confirmed the runtime types match
+    // before dispatching here; the pattern guard keeps it correct if called directly.
+    protected override bool EqualsCore(Reference<T> other)
+        => other is ResourceLink<T> link
+           && base.EqualsCore(other)
+           && Link.Equals(link.Link);
 
     public override int GetHashCode() => HashCode.Combine(base.GetHashCode(), Link);
 }
