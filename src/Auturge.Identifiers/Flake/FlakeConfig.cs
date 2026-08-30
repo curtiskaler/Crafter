@@ -9,12 +9,13 @@ namespace Auturge.Identifiers;
 public readonly struct FlakeConfig : IEquatable<FlakeConfig>
 {
     /// <summary>
-    /// The (numeric) output type of the flake.
+    /// The numeric type a flake is packed into. Always <c>typeof(long)</c> — the constructor
+    /// rejects anything else.
     /// </summary>
     public Type OutputType { get; }
 
     /// <summary>
-    /// The bit length of the output type of the flake.
+    /// The width of <see cref="OutputType"/> in bits. Always 64.
     /// </summary>
     public int BitLength { get; }
 
@@ -31,62 +32,39 @@ public readonly struct FlakeConfig : IEquatable<FlakeConfig>
     /// </summary>
     public long Epoch { get; }
 
-    /// <summary>
-    /// The number of bits occupied by sequence data
-    /// </summary>
+    /// <summary> Bits reserved for the per-millisecond sequence counter. </summary>
     public int SequenceBits { get; }
 
-    /// <summary>
-    /// The number of bits occupied by the machine identifier 
-    /// </summary>
+    /// <summary> Bits reserved for the machine id. </summary>
     public int MachineBits { get; }
 
-    /// <summary>
-    /// The number of bits occupied by the datacenter identifier 
-    /// </summary>
+    /// <summary> Bits reserved for the datacenter id. </summary>
     public int DatacenterBits { get; }
 
-
-    /// <summary>
-    /// The number of bits occupied by the timestamp 
-    /// </summary>
+    /// <summary> Bits left for the timestamp offset, i.e. <c>63 - SequenceBits - MachineBits - DatacenterBits</c>. </summary>
     public int TimestampBits { get; }
 
 
-    /// <summary>
-    /// The maximum value for the datacenter identifier
-    /// </summary>
+    /// <summary> Largest datacenter id this layout can hold. </summary>
     public int MaxDatacenterNum => -1 ^ (-1 << DatacenterBits);
 
-    /// <summary>
-    /// The maximum value for the machine identifier
-    /// </summary>
+    /// <summary> Largest machine id this layout can hold. </summary>
     public int MaxMachineNum => -1 ^ (-1 << MachineBits);
 
-    /// <summary>
-    ///  The maximum value for the sequence counter.
-    /// </summary>
+    /// <summary> Largest sequence value before it wraps within a millisecond. </summary>
     public int MaxSequence => -1 ^ (-1 << SequenceBits);
 
 
-    /// <summary>
-    /// The offset of the sequence bits.
-    /// </summary>
+    /// <summary> Bit position of the sequence field (least significant). Always 0. </summary>
     public int SequenceOffset => 0;
 
-    /// <summary>
-    /// The offset of the machine identifier bits.
-    /// </summary>
+    /// <summary> Bit position of the machine field. </summary>
     public int MachineOffset => SequenceBits;
 
-    /// <summary>
-    /// The offset of the datacenter identifier bits.
-    /// </summary>
+    /// <summary> Bit position of the datacenter field. </summary>
     public int DatacenterOffset => SequenceBits + MachineBits;
 
-    /// <summary>
-    /// The offset of the timestamp bits.
-    /// </summary>
+    /// <summary> Bit position of the timestamp field (most significant, below the sign bit). </summary>
     public int TimestampOffset => DatacenterOffset + DatacenterBits;
 
 
@@ -136,7 +114,7 @@ public readonly struct FlakeConfig : IEquatable<FlakeConfig>
         ValidateInputs(numericType, epoch, sequenceBits, machineBits, datacenterBits);
 
         OutputType = numericType;
-        BitLength = TypeSizer.GetBitSize(numericType);
+        BitLength = 64; // ValidateInputs guarantees numericType is long.
         Epoch = epoch;
         SequenceBits = sequenceBits;
         MachineBits = machineBits;

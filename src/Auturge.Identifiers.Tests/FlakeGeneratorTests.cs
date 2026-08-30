@@ -16,6 +16,20 @@ public class FlakeGeneratorTests
         public void Rewind(long millis) => _millis -= millis;
     }
 
+    // Yields each scripted timestamp once, then keeps returning the last — enough for a
+    // SpinUntil waiting on the clock to advance to terminate.
+    private sealed class ScriptedClock(params long[] millis) : TimeProvider
+    {
+        private readonly Queue<long> _script = new(millis);
+        private long _last;
+
+        public override DateTimeOffset GetUtcNow()
+        {
+            if (_script.Count > 0) _last = _script.Dequeue();
+            return DateTimeOffset.FromUnixTimeMilliseconds(_last);
+        }
+    }
+
     private static long Millis(int year)
         => new DateTimeOffset(new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
 
@@ -138,5 +152,22 @@ public class FlakeGeneratorTests
         long id = generator.GetNextId();
 
         Assert.That(id, Is.Positive);
+    }
+
+    [Test]
+    public void GetNextId_Should_AdvanceToNextMillisecond_When_SequenceIsExhausted()
+    {
+        long epoch = Millis(2020);
+        long t = epoch + 1_000;
+        var config = new FlakeConfig(typeof(long), epoch, 1, 0, 0); // MaxSequence == 1
+        var generator = new FlakeGenerator(config, 0, 0, new ScriptedClock(t, t, t, t + 1));
+
+        long first = generator.GetNextId();
+        long second = generator.GetNextId();
+        long third = generator.GetNextId();
+
+        Assert.That(second & config.MaxSequence, Is.EqualTo(1));
+        Assert.That(third & config.MaxSequence, Is.Zero);
+        Assert.That(third >> config.TimestampOffset, Is.EqualTo((first >> config.TimestampOffset) + 1));
     }
 }

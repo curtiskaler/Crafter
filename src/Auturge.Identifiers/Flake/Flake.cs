@@ -1,5 +1,7 @@
 ﻿// ReSharper disable MemberCanBePrivate.Global
 
+using System.Diagnostics;
+using System.Globalization;
 using Auturge.Identifiers.Instances;
 
 namespace Auturge.Identifiers;
@@ -9,39 +11,60 @@ namespace Auturge.Identifiers;
 /// 64-bit <see cref="Value"/>; this struct is a decoded view that also surfaces the timestamp,
 /// datacenter, machine, and sequence components packed into it.
 /// </summary>
+[DebuggerDisplay("{Value} ({ToComponentString()})")]
 public readonly struct Flake : IEquatable<Flake>, IComparable<Flake>, IComparable<long>
 {
     // A config and the generator that matches it travel together as one immutable object,
     // swapped by a single volatile reference write. Every reader (the decode constructors,
     // NewFlake) takes one snapshot, so a concurrent reassignment of Config can never be
     // seen as a torn FlakeConfig struct or as a generator built for a different layout.
-    private sealed class Ambient(FlakeConfig config)
+    private sealed class Ambient(FlakeConfig config, long dataCenterId, long machineId)
     {
         public FlakeConfig Config { get; } = config;
-        public FlakeGenerator Generator { get; } = new(config);
+        public long DataCenterId { get; } = dataCenterId;
+        public long MachineId { get; } = machineId;
+        public FlakeGenerator Generator { get; } = new(config, dataCenterId, machineId);
     }
 
-    private static volatile Ambient _ambient = new(FlakeConfigs.Funsies);
+    private static volatile Ambient _ambient = new(FlakeConfigs.Funsies, 0, 0);
 
     /// <summary>
     /// The layout used to encode and decode flakes when no configuration is passed
     /// explicitly, and the layout used by <see cref="NewFlake"/>. Process-wide.
     /// </summary>
     /// <remarks>
-    /// Intended to be set once at start-up. Assigning a new value also replaces the generator
-    /// behind <see cref="NewFlake"/> (its datacenter and machine ids reset to zero). Individual
-    /// reads and writes are thread-safe, but flakes produced under one layout cannot be decoded
-    /// under another.
+    /// Intended to be set once at start-up (see <see cref="Configure"/> to also set the
+    /// datacenter and machine ids). The current source ids are carried over, so assigning a
+    /// layout that can't hold them throws. Individual reads and writes are thread-safe, but
+    /// flakes produced under one layout cannot be decoded under another.
     /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// The new layout has too few machine or datacenter bits for the currently configured
+    /// source ids.
+    /// </exception>
     public static FlakeConfig Config
     {
         get => _ambient.Config;
         set
         {
-            if (_ambient.Config == value) return;
-            _ambient = new Ambient(value);
+            Ambient current = _ambient;
+            if (current.Config == value) return;
+            _ambient = new Ambient(value, current.DataCenterId, current.MachineId);
         }
     }
+
+    /// <summary>
+    /// Sets the layout and source ids used by <see cref="NewFlake"/> and by the
+    /// ambient-<see cref="Config"/> decode constructor. Call once at start-up; in a
+    /// distributed deployment give each node a distinct datacenter/machine pair so their
+    /// ids can't collide within a millisecond.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="dataCenterId"/> or <paramref name="machineId"/> is outside the range
+    /// <paramref name="config"/> allows.
+    /// </exception>
+    public static void Configure(FlakeConfig config, long dataCenterId = 0, long machineId = 0)
+        => _ambient = new Ambient(config, dataCenterId, machineId);
 
     /// <summary> The packed 64-bit identifier. Equality and ordering are defined solely by this. </summary>
     public long Value { get; init; }
@@ -58,8 +81,14 @@ public readonly struct Flake : IEquatable<Flake>, IComparable<Flake>, IComparabl
     /// <summary> The UTC instant the flake was generated (millisecond precision). </summary>
     public DateTime TimeStamp { get; init; }
 
-    /// <summary> Renders the decoded components; use <see cref="Value"/> for the numeric form. </summary>
-    public override string ToString()
+    /// <summary> The identifier as a string, identical to <c>Value.ToString()</c>. </summary>
+    public override string ToString() => Value.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// Renders the decoded parts — datacenter, machine, sequence, and timestamp — for
+    /// diagnostics. <see cref="ToString"/> gives the numeric form.
+    /// </summary>
+    public string ToComponentString()
         => $@"D:{DataCenterId} M:{MachineId} S:{Sequence} T:{TimeStamp:yyyy-MM-ddTHH:mm:ss.fffZ}";
 
     /// <summary> Unwraps the flake to its packed <see cref="Value"/>. </summary>
