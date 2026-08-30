@@ -5,6 +5,24 @@ public class FlakeTests
     private static long UnixMillis(DateTime utc) => new DateTimeOffset(utc).ToUnixTimeMilliseconds();
 
     [Test]
+    public void ToString_Should_ReturnTheNumericValue()
+    {
+        var flake = new Flake { Value = 123456789L };
+
+        Assert.That(flake.ToString(), Is.EqualTo("123456789"));
+    }
+
+    [Test]
+    public void ToComponentString_Should_RenderTheDecodedParts()
+    {
+        var flake = new Flake { Value = 5L, DataCenterId = 1L, MachineId = 2L, Sequence = 3L };
+
+        Assert.That(flake.ToComponentString(), Does.Contain("D:1"));
+        Assert.That(flake.ToComponentString(), Does.Contain("M:2"));
+        Assert.That(flake.ToComponentString(), Does.Contain("S:3"));
+    }
+
+    [Test]
     public void Ctor_Should_Throw_When_SequenceExceedsConfigMaximum()
     {
         long timestamp = UnixMillis(new DateTime(2025, 6, 15, 0, 0, 0, DateTimeKind.Utc));
