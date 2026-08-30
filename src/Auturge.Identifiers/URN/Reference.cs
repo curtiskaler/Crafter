@@ -14,32 +14,30 @@ public class Reference<T>(string displayName, [NotNull] T resource) : IEquatable
     }
 
     #region Equality
-    
-    public bool Equals(Reference<T>? other)
-    {
-        if (other is null) return false;
-        if (ReferenceEquals(this, other)) return true;
-        return DisplayName == other.DisplayName && Resource!.Equals(other.Resource);
-    }
+
+    // Every comparison path (==, Equals(object), IEquatable<Reference<T>>) funnels
+    // through Equals(object) -> EqualsCore so a subclass that widens the comparison
+    // (e.g. ResourceLink adding Link) stays consistent across all of them.
+    public bool Equals(Reference<T>? other) => Equals((object?)other);
 
     public override bool Equals(object? obj)
     {
         if (obj is null) return false;
         if (ReferenceEquals(this, obj)) return true;
         if (obj.GetType() != GetType()) return false;
-        return Equals((Reference<T>)obj);
+        return EqualsCore((Reference<T>)obj);
     }
+
+    protected virtual bool EqualsCore(Reference<T> other)
+        => DisplayName == other.DisplayName
+           && EqualityComparer<T>.Default.Equals(Resource, other.Resource);
 
     public override int GetHashCode() => HashCode.Combine(DisplayName, Resource);
-    
+
     public static bool operator ==(Reference<T>? lhs, Reference<T>? rhs)
-    {
-        if (lhs is null && rhs is null) return true;
-        if (lhs is null || rhs is null) return false;
-        return lhs.Equals(rhs);
-    }
+        => lhs is null ? rhs is null : lhs.Equals((object?)rhs);
 
     public static bool operator !=(Reference<T>? lhs, Reference<T>? rhs) => !(lhs == rhs);
-    
+
     #endregion Equality
 }

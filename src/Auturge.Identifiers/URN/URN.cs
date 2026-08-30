@@ -12,13 +12,14 @@ namespace Auturge.Identifiers;
 /// Abstract so that you can (MUST!) define it within your own namespace. 
 /// </summary>
 [DebuggerDisplay("urn:{NID}:{NSS}")]
-public abstract class URN : Uri
+public abstract class URN : Uri, IEquatable<URN>
 {
     private const string _urnScheme = "urn";
     protected const RegexOptions _urnRegexOptions = RegexOptions.Singleline | RegexOptions.CultureInvariant;
 
+    // RFC 8141: NID is alphanumeric with internal hyphens (2-32 chars); NSS is non-empty.
     private static readonly Regex _urnRegex =
-        new("^urn:(?<NID>[a-z|A-Z][a-z|A-Z|-]{0,30}[a-z|A-Z]):(?<NSS>.*)$", _urnRegexOptions);
+        new("^urn:(?<NID>[a-zA-Z0-9][a-zA-Z0-9-]{0,30}[a-zA-Z0-9]):(?<NSS>.+)$", _urnRegexOptions);
 
     /// <summary>
     /// Namespace Identifier (NID)
@@ -52,17 +53,24 @@ public abstract class URN : Uri
     {
     }
 
-    public override bool Equals(object? other)
+    // Uri implements IEquatable<Uri>, so a URN-typed Equals(other) call would otherwise
+    // bind to Uri's case-sensitive comparison instead of this one. Route every path
+    // (Equals(object), Equals(URN), ==) through the same NID/NSS check.
+    public bool Equals(URN? other)
     {
-        if (other == null) return false;
+        if (other is null) return false;
         if (ReferenceEquals(other, this)) return true;
         return
-            other is URN u &&
-            string.Equals(NID, u.NID, StringComparison.InvariantCultureIgnoreCase) &&
-            string.Equals(NSS, u.NSS, StringComparison.Ordinal);
+            string.Equals(NID, other.NID, StringComparison.InvariantCultureIgnoreCase) &&
+            string.Equals(NSS, other.NSS, StringComparison.Ordinal);
     }
 
-    public override int GetHashCode() => base.GetHashCode();
+    public override bool Equals(object? other) => Equals(other as URN);
+
+    // Must mirror Equals: NID compared case-insensitively, NSS ordinally.
+    public override int GetHashCode() => HashCode.Combine(
+        StringComparer.InvariantCultureIgnoreCase.GetHashCode(NID),
+        StringComparer.Ordinal.GetHashCode(NSS));
 
     public static bool operator ==(URN u1, URN u2)
     {
