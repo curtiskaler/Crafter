@@ -1,44 +1,69 @@
 ﻿using System.Text.RegularExpressions;
+using Auturge.Identifiers;
 
 namespace Crafter.Model.Identifiers;
 
-public class URN : Auturge.Identifiers.URN
+/// <summary>
+/// A Crafter URN: <c>urn:auturge-crafter:&lt;entityType&gt;:&lt;id&gt;</c>. The NSS is an
+/// entity-type path (which may itself contain <c>:</c>) followed by a single colon-free id
+/// segment.
+/// </summary>
+public partial class URN : Auturge.Identifiers.URN
 {
     private const string _namespaceId = "auturge-crafter";
 
-    private static readonly Regex _nssRegex =
-        new("^(?<EntityType>.*):(?<Id>.*)$", _urnRegexOptions);
+    // EntityType is everything before the final ':'; Id is the last colon-free segment.
+    [GeneratedRegex(@"^(?<EntityType>.+):(?<Id>[^:]+)$", _urnRegexOptions)]
+    private static partial Regex NssRegex();
 
-    private static string ToNSS(string entityType, string id) => $"{entityType}:{id}";
+    /// <summary>The entity-type portion of the NSS (everything before the final <c>:</c>).</summary>
+    public string EntityType { get; }
 
-    private static string GetPart(URN urn, string matcher)
-    {
-        Match match = _nssRegex.Match(urn.NSS);
-        if (!match.Success) throw new FormatException("URN's NSS is invalid.");
-        return match.Groups[matcher].Value;
-    }
+    /// <summary>The id portion of the NSS (the final colon-free segment).</summary>
+    public string Id { get; }
 
-    public string EntityType
-    {
-        get => GetPart(this, nameof(EntityType));
-    }
-
-    public string Id
-    {
-        get => GetPart(this, nameof(Id));
-    }
-
+    /// <summary>
+    /// Parses a full <c>urn:auturge-crafter:&lt;entityType&gt;:&lt;id&gt;</c> string.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="s"/> is <see langword="null"/>.</exception>
+    /// <exception cref="FormatException">The scheme, NID, or NSS shape is wrong.</exception>
     public URN(string s) : base(s)
     {
-        if (!string.Equals(NID, _namespaceId, StringComparison.InvariantCultureIgnoreCase))
-            throw new FormatException($"NID (Namespace ID) must be '{_namespaceId}'.");
+        if (!string.Equals(NID, _namespaceId, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new FormatException($"URN NID must be '{_namespaceId}', not '{NID}'.");
+        }
+
+        Match match = NssRegex().Match(NSS);
+        if (!match.Success)
+        {
+            throw new FormatException($"URN NSS must be '<entityType>:<id>', not '{NSS}'.");
+        }
+
+        EntityType = match.Groups["EntityType"].Value;
+        Id = match.Groups["Id"].Value;
     }
 
-    public URN(string entityType, string id) : base(_namespaceId, ToNSS(entityType, id))
+    /// <summary>
+    /// Composes a Crafter URN from an <paramref name="entityType"/> and <paramref name="id"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">A part is <see langword="null"/>.</exception>
+    /// <exception cref="FormatException">
+    /// A part contains characters not valid in a URN, or <paramref name="id"/> contains a <c>:</c>.
+    /// </exception>
+    public URN(string entityType, string id) : this(Compose(entityType, id))
     {
     }
 
-    public URN(URN urn) : this(urn.NID.ToLowerInvariant(), urn.NSS)
+    private static string Compose(string entityType, string id)
     {
+        ArgumentNullException.ThrowIfNull(entityType);
+        ArgumentNullException.ThrowIfNull(id);
+        if (id.Contains(':'))
+        {
+            throw new FormatException($"URN id must not contain ':' — got '{id}'.");
+        }
+
+        return $"urn:{_namespaceId}:{entityType}:{id}";
     }
 }

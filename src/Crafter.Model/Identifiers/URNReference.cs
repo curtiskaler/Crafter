@@ -2,49 +2,34 @@
 
 namespace Crafter.Model.Identifiers;
 
-public class URNReference : Reference<URN>, IEquatable<URNReference>
+/// <summary>
+/// A named reference to a Crafter <see cref="URN"/>. Equality is by display name and URN,
+/// inherited from <see cref="Reference{T}"/>.
+/// </summary>
+public class URNReference : Reference<URN>
 {
+    /// <summary>The referenced URN.</summary>
     public URN URN => Resource;
 
-    public URNReference(string displayName, string entityType, string id) : base(displayName,
-        new URN(entityType, id))
+    /// <summary>Creates a reference from a URN's <paramref name="entityType"/> and <paramref name="id"/>.</summary>
+    public URNReference(string displayName, string entityType, string id)
+        : base(displayName, new URN(entityType, id))
     {
     }
 
-    public URNReference(string displayName, string urnString) : this(displayName, new URN(urnString))
+    /// <summary>Creates a reference from a full <c>urn:auturge-crafter:…</c> string.</summary>
+    public URNReference(string displayName, string urnString)
+        : this(displayName, new URN(urnString))
     {
     }
 
-    public URNReference(string displayName, URN original) : base(displayName, original)
+    /// <summary>Creates a reference to an existing <paramref name="urn"/>.</summary>
+    public URNReference(string displayName, URN urn) : base(displayName, urn)
     {
     }
 
+    /// <summary>Copy constructor.</summary>
     public URNReference(URNReference reference) : base(reference)
     {
     }
-
-    #region Equality
-
-    public bool Equals(URNReference? other) => base.Equals(other);
-
-    public override bool Equals(object? obj)
-    {
-        if (obj is null) return false;
-        if (ReferenceEquals(this, obj)) return true;
-        if (obj.GetType() != GetType()) return false;
-        return Equals((URNReference)obj);
-    }
-
-    public override int GetHashCode() => base.GetHashCode();
-    
-    public static bool operator ==(URNReference? lhs, URNReference? rhs)
-    {
-        if (lhs is null && rhs is null) return true;
-        if (lhs is null || rhs is null) return false;
-        return lhs.Equals(rhs);
-    }
-
-    public static bool operator !=(URNReference? lhs, URNReference? rhs) => !(lhs == rhs);
-
-    #endregion Equality
 }
