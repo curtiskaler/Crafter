@@ -95,11 +95,10 @@ public readonly struct FlakeConfig : IEquatable<FlakeConfig>
 
     public FlakeConfig(Type numericType, long epoch, ushort sequenceBits, ushort machineBits, ushort datacenterBits)
     {
+        ValidateInputs(numericType, epoch, sequenceBits, machineBits, datacenterBits);
+
         OutputType = numericType;
-        BitLength = TypeSizer.GetBitSize(OutputType);
-
-        ValidateInputs(BitLength, sequenceBits, machineBits, datacenterBits);
-
+        BitLength = TypeSizer.GetBitSize(numericType);
         Epoch = epoch;
         SequenceBits = sequenceBits;
         MachineBits = machineBits;
@@ -108,25 +107,46 @@ public readonly struct FlakeConfig : IEquatable<FlakeConfig>
         RolloverDate = TimeUtils.FindRolloverDateTime(epoch, TimestampBits);
     }
 
-    private static void ValidateInputs(int bitLength, ushort sequenceBits, ushort machineBits, ushort datacenterBits)
+    // 2^35 ms is a little over a year; a config with fewer timestamp bits than this
+    // rolls over inside its first year, which is never intentional.
+    private const int _minimumTimestampBits = 35;
+
+    private static void ValidateInputs(Type outputType, long epoch, int sequenceBits, int machineBits, int datacenterBits)
     {
-        ValidateInput("sequence bits", sequenceBits);
-        ValidateInput("machine bits", machineBits);
-        ValidateInput("datacenter bits", datacenterBits);
-
-        // There are 35 bits worth of ms in a year (even a leap-year).
-        const int bitsInYear = 35;
-
-        // The config must be good for at least 1 year.
-        ValidateInput("bits", (sequenceBits + machineBits + datacenterBits + bitsInYear + 1));
-        return;
-
-        void ValidateInput(string purpose, int value)
+        // Flake and FlakeGenerator pack every id into a signed 64-bit long — `long`
+        // arithmetic, `1L`/`1U` shift masks, one reserved sign bit. No other width
+        // actually round-trips, so reject it here instead of letting a wider or
+        // narrower type silently produce truncated ids.
+        if (outputType != typeof(long))
         {
-            if (value >= bitLength - 1)
-            {
-                throw new ArgumentException(@$"The total number of {purpose} must be fewer than {bitLength}-1.");
-            }
+            throw new ArgumentException(
+                $"Flake ids are packed into a signed 64-bit long; output type '{outputType}' is not supported.",
+                nameof(outputType));
+        }
+
+        if (epoch < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(epoch), epoch,
+                "epoch must be a non-negative Unix-millisecond value.");
+        }
+
+        // The generator needs at least one sequence bit to hand out more than one id
+        // per millisecond; with zero it hits the sequence-exhausted spin on every
+        // second call within a millisecond.
+        if (sequenceBits < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(sequenceBits), sequenceBits,
+                "at least one sequence bit is required.");
+        }
+
+        const int signBit = 1;
+        int timestampBits = 64 - (sequenceBits + machineBits + datacenterBits) - signBit;
+        if (timestampBits < _minimumTimestampBits)
+        {
+            throw new ArgumentException(
+                $"sequence ({sequenceBits}) + machine ({machineBits}) + datacenter ({datacenterBits}) bits leave "
+                + $"only {timestampBits} for the timestamp; at least {_minimumTimestampBits} are required.",
+                nameof(sequenceBits));
         }
     }
 
