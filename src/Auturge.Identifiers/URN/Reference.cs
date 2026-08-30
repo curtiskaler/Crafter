@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 
 namespace Auturge.Identifiers;
 
@@ -7,19 +6,24 @@ namespace Auturge.Identifiers;
 /// A display name paired with the resource it identifies. Equality is by
 /// <see cref="DisplayName"/> and <see cref="Resource"/>.
 /// </summary>
-/// <typeparam name="T">The resource type.</typeparam>
+/// <typeparam name="T">The resource type; must be a non-nullable type.</typeparam>
 /// <param name="displayName">Human-readable label for the resource.</param>
 /// <param name="resource">The resource being referenced.</param>
 [DebuggerDisplay("{DisplayName} : {Resource}")]
-public class Reference<T>(string displayName, [NotNull] T resource) : IEquatable<Reference<T>>
+public class Reference<T>(string displayName, T resource) : IEquatable<Reference<T>>
+    where T : notnull
 {
     /// <summary>Human-readable label for the resource.</summary>
     public string DisplayName { get; } = displayName ?? throw new ArgumentNullException(nameof(displayName));
 
     /// <summary>The referenced resource.</summary>
-    public T Resource { get; } = resource ?? throw new ArgumentNullException(nameof(resource));
+    public T Resource { get; } = resource is null ? throw new ArgumentNullException(nameof(resource)) : resource;
 
-    /// <summary>Copy constructor.</summary>
+    /// <summary>
+    /// Reprojects <paramref name="original"/> as a plain <see cref="Reference{T}"/>: its
+    /// <see cref="DisplayName"/> and <see cref="Resource"/> are copied, but subclass state
+    /// (such as a <see cref="ResourceLink{T}"/>'s link) is not.
+    /// </summary>
     public Reference(Reference<T> original) : this(original.DisplayName, original.Resource)
     {
     }

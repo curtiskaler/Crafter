@@ -111,19 +111,19 @@ public readonly struct Flake : IEquatable<Flake>, IComparable<Flake>, IComparabl
         if (dataCenterId > config.MaxDatacenterNum || dataCenterId < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(dataCenterId),
-                $@"dataCenterId can't be greater than {config.MaxDatacenterNum} or less than 0");
+                string.Format(CultureInfo.CurrentCulture, RS.Identifiers_DatacenterIdOutOfRange, config.MaxDatacenterNum));
         }
 
         if (machineId > config.MaxMachineNum || machineId < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(machineId),
-                $@"machineId can't be greater than {config.MaxMachineNum} or less than 0");
+                string.Format(CultureInfo.CurrentCulture, RS.Identifiers_MachineIdOutOfRange, config.MaxMachineNum));
         }
 
         if (sequence > config.MaxSequence || sequence < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(sequence),
-                $@"sequence can't be greater than {config.MaxSequence} or less than 0");
+                string.Format(CultureInfo.CurrentCulture, RS.Identifiers_SequenceOutOfRange, config.MaxSequence));
         }
 
         // A timestamp outside [epoch, epoch + 2^TimestampBits) would silently overflow
@@ -132,8 +132,7 @@ public readonly struct Flake : IEquatable<Flake>, IComparable<Flake>, IComparabl
         long maxMsSinceEpoch = (1L << config.TimestampBits) - 1;
         if (msSinceEpoch < 0 || msSinceEpoch > maxMsSinceEpoch)
         {
-            throw new ArgumentOutOfRangeException(nameof(timestamp),
-                @"timestamp is outside the range representable by the configured timestamp bits");
+            throw new ArgumentOutOfRangeException(nameof(timestamp), RS.Flake_TimestampOutOfRange);
         }
 
         DataCenterId = dataCenterId;

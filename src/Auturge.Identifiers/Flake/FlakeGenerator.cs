@@ -1,4 +1,5 @@
-﻿using Auturge.Identifiers.Instances;
+﻿using System.Globalization;
+using Auturge.Identifiers.Instances;
 
 namespace Auturge.Identifiers;
 
@@ -53,13 +54,13 @@ public sealed class FlakeGenerator
         if (datacenterId > _config.MaxDatacenterNum || datacenterId < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(datacenterId),
-                @$"datacenterId can't be greater than {_config.MaxDatacenterNum} or less than 0");
+                string.Format(CultureInfo.CurrentCulture, RS.Identifiers_DatacenterIdOutOfRange, _config.MaxDatacenterNum));
         }
 
         if (machineId > _config.MaxMachineNum || machineId < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(machineId),
-                @$"machineId can't be greater than {_config.MaxMachineNum} or less than 0");
+                string.Format(CultureInfo.CurrentCulture, RS.Identifiers_MachineIdOutOfRange, _config.MaxMachineNum));
         }
 
         _dataCenterId = datacenterId;
@@ -102,8 +103,8 @@ public sealed class FlakeGenerator
                 if (timestamp < _lastStamp)
                 {
                     throw new InvalidOperationException(
-                        $"Clock moved backwards by {_lastStamp - timestamp} ms (now {timestamp}, last id used "
-                        + $"{_lastStamp}); refusing to generate ids that could collide with ones already issued.");
+                        string.Format(CultureInfo.CurrentCulture, RS.FlakeGenerator_ClockMovedBackwards,
+                            _lastStamp - timestamp, timestamp, _lastStamp));
                 }
 
                 // The timestamp field only holds an offset from the epoch that fits in
@@ -114,9 +115,9 @@ public sealed class FlakeGenerator
                 if (msSinceEpoch < 0 || msSinceEpoch > _maxMsSinceEpoch)
                 {
                     throw new InvalidOperationException(
-                        $"Clock reads {timestamp} ms, outside the range this configuration can encode "
-                        + $"({_config.Epoch}..{_config.Epoch + _maxMsSinceEpoch} ms, rollover "
-                        + $"{_config.RolloverDate:yyyy-MM-dd}): it is before the epoch or past the rollover point.");
+                        string.Format(CultureInfo.CurrentCulture, RS.FlakeGenerator_ClockOutsideConfigWindow,
+                            timestamp, _config.Epoch, _config.Epoch + _maxMsSinceEpoch,
+                            _config.RolloverDate.ToString("yyyy-MM-dd", CultureInfo.CurrentCulture)));
                 }
 
                 if (_lastStamp == timestamp)
