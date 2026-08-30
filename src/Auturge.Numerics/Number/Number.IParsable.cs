@@ -126,11 +126,23 @@ public partial struct Number // Parsing internals
             i++;
         }
 
+        // Fold in any scientific-notation exponent. The digits so far represent
+        // rawValue * 10^-decimalOffset; multiplying by 10^exponent shifts the
+        // decimal point, i.e. leaves a net negative exponent of (decimalOffset - exponent).
+        int netOffset = decimalOffset - simplified.Exponent;
+        if (netOffset < 0)
+        {
+            // A positive net exponent has no place in Number's (significand, negative-exponent)
+            // shape, so bake it into the significand instead.
+            rawValue *= BigInteger.Pow(10, -netOffset);
+            netOffset = 0;
+        }
+
         // Now assign the value
         if (sign == false)
             rawValue = -rawValue;
 
-        number = new Number(rawValue, decimalOffset);
+        number = new Number(rawValue, netOffset);
         return NumberParseResult.Success;
     }
 
@@ -142,8 +154,18 @@ public partial struct Number // Parsing internals
     {
         // TODO: GAF about style? >.<
 
+        // Split off any scientific-notation exponent BEFORE sign/currency trimming, so the
+        // exponent's own '+'/'-' sign isn't mistaken for the number's sign. e.g. "1.5E+10"
+        // becomes mantissa "1.5" with exponent +10; double.ToString() produces this form for
+        // magnitudes like 1e30 ("1E+30") and 1e-30 ("1E-30").
+        if (!TrySplitExponent(strValue, info, out string mantissa, out int exponent))
+        {
+            number = new NumberParseBuffer(NumberParseResult.InvalidCharacter);
+            return false;
+        }
+
         // TrimSign returns the boolean sign (true = +, false = -) of the number.
-        bool? sign = strValue.TrimSign(info, out string unsigned);
+        bool? sign = mantissa.TrimSign(info, out string unsigned);
 
         // if it has a currency symbol, then we're parsing currency; otherwise, we're not.
         string decSep;
@@ -159,11 +181,8 @@ public partial struct Number // Parsing internals
             groupSep = info.NumberGroupSeparator;
         }
         
-        // trim out exponential notation.
-        string noExponential = trimmed.Replace("e", "").Replace("E", "");
-        
-        // trim out group separator.
-        string noGroups = noExponential.Replace(groupSep, "");
+        // trim out group separator. (the exponent was already split off up front.)
+        string noGroups = trimmed.Replace(groupSep, "");
 
         // return failure on anything that remains
         // which isn't a digit or decimal separator.
@@ -185,18 +204,57 @@ public partial struct Number // Parsing internals
                 continue;
             }
 
-            // if c==e or E, that's exponential notation
-            if (c == 'E' || c == 'e')
-            {
-                // validate the sign
-            }
-
-
             number = new NumberParseBuffer(NumberParseResult.InvalidCharacter);
             return false;
         }
 
-        number = new NumberParseBuffer(info.NumberDecimalSeparator, sign, noGroups);
+        number = new NumberParseBuffer(info.NumberDecimalSeparator, sign, noGroups, exponent);
+        return true;
+    }
+
+    /// <summary>
+    /// Splits a scientific-notation string into its mantissa and base-10 exponent
+    /// (e.g. <c>"1.5E+10"</c> -> <c>"1.5"</c>, <c>10</c>). Strings without an <c>e</c>/<c>E</c>
+    /// pass through unchanged with a zero exponent. Returns <see langword="false"/> for a
+    /// malformed exponent (missing digits, non-digit characters, or overflow).
+    /// </summary>
+    private static bool TrySplitExponent(string strValue, NumberFormatInfo info, out string mantissa,
+        out int exponent)
+    {
+        exponent = 0;
+
+        int eIndex = strValue.AsSpan().IndexOfAny('e', 'E');
+        if (eIndex < 0)
+        {
+            mantissa = strValue;
+            return true;
+        }
+
+        mantissa = strValue[..eIndex];
+        ReadOnlySpan<char> expPart = strValue.AsSpan(eIndex + 1);
+
+        // an 'e'/'E' with nothing before it isn't scientific notation we can use.
+        if (mantissa.Length == 0)
+            return false;
+
+        bool expNegative = false;
+        if (expPart.StartsWith(info.PositiveSign))
+        {
+            expPart = expPart[info.PositiveSign.Length..];
+        }
+        else if (expPart.StartsWith(info.NegativeSign))
+        {
+            expNegative = true;
+            expPart = expPart[info.NegativeSign.Length..];
+        }
+
+        if (expPart.IsEmpty
+            || !int.TryParse(expPart, NumberStyles.None, CultureInfo.InvariantCulture, out int magnitude))
+        {
+            return false;
+        }
+
+        exponent = expNegative ? -magnitude : magnitude;
         return true;
     }
 }
