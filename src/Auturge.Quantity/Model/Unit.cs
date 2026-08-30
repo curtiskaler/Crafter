@@ -141,10 +141,15 @@ public sealed class Unit : IEquatable<Unit>, IHaveNameAndSymbol, IHaveSynonyms<U
         return Equals((Unit)obj);
     }
 
-    public override int GetHashCode()
-    {
-        return HashCode.Combine(Id, DisplayName, Symbol, Dimension, Definition);
-    }
+    // Equals compares Dimension and Definition (the Id short-circuit implies both for any real unit),
+    // so the hash must exclude Id/DisplayName/Symbol — otherwise units that are Equal hash differently
+    // and break as Dictionary/HashSet keys and in Distinct()/GroupBy.
+    //
+    // Only Dimension is folded in, not Definition: a Unit is itself the key type of UnitDefinition,
+    // and Definition is built up by mutation (base units add themselves; the * and / operators call
+    // IncludeBaseUnits on an operand's stored Definition), so any hash derived from Definition would
+    // change after the key was inserted. Dimension's exponent vector is init-only and stable.
+    public override int GetHashCode() => Dimension.GetHashCode();
 
     public static bool operator ==(Unit? lhs, Unit? rhs)
     {

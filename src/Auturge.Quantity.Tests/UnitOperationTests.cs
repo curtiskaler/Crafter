@@ -109,6 +109,37 @@ public class UnitOperationTests
     }
 
     [Test]
+    public void GetHashCode_Should_MatchTheEqualUnit_When_TheyDifferOnlyByLabel()
+    {
+        var relabelled = new Unit(Meters, "metres", "metre");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(relabelled, Is.EqualTo(Meters));
+            Assert.That(relabelled.GetHashCode(), Is.EqualTo(Meters.GetHashCode()));
+        });
+    }
+
+    [Test]
+    public void GetHashCode_Should_LetAnEqualUnitResolveTheSameKey_When_UsedInADictionary()
+    {
+        var relabelled = new Unit(Meters, "metres", "metre");
+        var lookup = new Dictionary<Unit, string> { [Meters] = "length" };
+
+        Assert.That(lookup[relabelled], Is.EqualTo("length"));
+    }
+
+    [Test]
+    public void Distinct_Should_CollapseEqualUnits_When_TheyDifferOnlyByLabel()
+    {
+        var relabelled = new Unit(Meters, "metres", "metre");
+
+        List<Unit> distinct = new List<Unit> { Meters, relabelled }.Distinct().ToList();
+
+        Assert.That(distinct, Has.Count.EqualTo(1));
+    }
+
+    [Test]
     public void AddSynonym_AppendsAndReturnsSameInstance()
     {
         var unit = new Unit("smoots", "smoot", Length);

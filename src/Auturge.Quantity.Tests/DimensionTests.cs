@@ -29,6 +29,14 @@ public class DimensionTests
     }
     
     [Test]
+    public void GetHashCode_Should_DependOnlyOnTheExponentVector()
+    {
+        var sameVectorDifferentLabels = new Dimension("dimensions.custom", "x", 0, 0, 1, 0, 0, 0, 0);
+
+        Assert.That(sameVectorDifferentLabels.GetHashCode(), Is.EqualTo(Dimensions.Mass.GetHashCode()));
+    }
+
+    [Test]
     public void Force_IsCorrect()
     {
         var dimension = Dimensions.Force;

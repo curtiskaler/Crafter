@@ -35,6 +35,18 @@ public class UnitTests
     }
 
     [Test]
+    public void GetHashCode_Should_IgnoreDisplayNameAndSymbol_When_TheUnitIsOtherwiseTheSame()
+    {
+        var relabelled = new Unit(Grams, "grammes", "gm");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(relabelled, Is.EqualTo(Grams));
+            Assert.That(relabelled.GetHashCode(), Is.EqualTo(Grams.GetHashCode()));
+        });
+    }
+
+    [Test]
     public void MetersPerSecond_IsCorrect()
     {
         var unit = MetersPerSecond;

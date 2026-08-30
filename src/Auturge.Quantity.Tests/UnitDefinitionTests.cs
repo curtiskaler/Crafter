@@ -110,6 +110,25 @@ public class UnitDefinitionTests
     }
 
     [Test]
+    public void GetHashCode_Should_BeEqual_When_DefinitionsAreEqualRegardlessOfInsertionOrder()
+    {
+        UnitDefinition a = Def((Meters, 1), (Seconds, -1));
+        UnitDefinition b = Def((Seconds, -1), (Meters, 1));
+
+        Assert.That(a.GetHashCode(), Is.EqualTo(b.GetHashCode()));
+    }
+
+    [Test]
+    public void GetHashCode_Should_LetAnEqualDefinitionResolveTheSameKey_When_UsedInADictionary()
+    {
+        UnitDefinition a = Def((Meters, 1), (Seconds, -1));
+        UnitDefinition b = Def((Seconds, -1), (Meters, 1));
+        var lookup = new Dictionary<UnitDefinition, string> { [a] = "velocity" };
+
+        Assert.That(lookup[b], Is.EqualTo("velocity"));
+    }
+
+    [Test]
     public void EqualityOperator_HandlesNullOperands()
     {
         Assert.Multiple(() =>
