@@ -7,7 +7,7 @@ using Auturge.Quantity;
 using Auturge.Stores;
 using Crafter.Model.Identifiers;
 
-namespace Crafter.Model;
+namespace Crafter.Model.Recipes;
 
 public class Recipe : StoredEntity, IDisplayEntity, IEquatable<Recipe>
 {
@@ -15,7 +15,7 @@ public class Recipe : StoredEntity, IDisplayEntity, IEquatable<Recipe>
     public string DisplayName => Product?.DisplayName ?? string.Empty;
 
     /// <summary> The ingredients and amounts. </summary>
-    public List<Ingredient> Ingredients { get; internal set; }
+    public List<IngredientAmount> Ingredients { get; internal set; }
 
     /// <summary> The item being crafted. </summary>
     public Product? Product { get; protected set; }
@@ -23,8 +23,8 @@ public class Recipe : StoredEntity, IDisplayEntity, IEquatable<Recipe>
     /// <summary> The total number of portions, servings, items or total weight/volume produced. </summary>
     public Quantity Yield { get; protected set; } = 1;
 
-    // this might be better as a hierarchical... thing. That can be decomposed into step-by-step.
-    public string Instructions { get; } = "";
+    // // this might be better as a hierarchical... thing. That can be decomposed into step-by-step.
+    // public string Instructions { get; } = "";
 
     /// <summary>
     /// Make parameters include Time, Temperature, etc.
@@ -49,7 +49,7 @@ public class Recipe : StoredEntity, IDisplayEntity, IEquatable<Recipe>
     {
     }
 
-    public Recipe(Product? product, IEnumerable<Ingredient>? ingredients = null) : base(product?.Id)
+    public Recipe(Product? product, IEnumerable<IngredientAmount>? ingredients = null) : base(product?.Id)
     {
         Ingredients = ingredients?.ToList() ?? [];
         Product = product;

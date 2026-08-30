@@ -1,8 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using Auturge.Identifiers;
 using Auturge.Stores;
 
-namespace Crafter.Model;
+namespace Crafter.Model.Recipes;
 
 public class Product(long? id = null, string? displayName = null) : StoredEntity(id), IDisplayEntity
 {

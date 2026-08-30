@@ -1,51 +1,91 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Linq.Expressions;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace Auturge.Stores.Stores;
 
 /// <summary>
-/// A high-performance, thread-safe, in-memory implementation of the <see cref="IStore{TId, TEntity}"/> contract.
+/// A thread-safe, in-memory implementation of <see cref="IStore{TEntity, TKey}"/> backed by a
+/// <see cref="ConcurrentDictionary{TKey, TValue}"/>. Suited to unit and integration tests and to
+/// lightweight local caching.
 /// </summary>
 /// <remarks>
-/// This class uses an internal <see cref="System.Collections.Concurrent.ConcurrentDictionary{TKey, TValue}"/> 
-/// to manage entities, making it highly suitable for high-concurrency web applications, lightweight 
-/// local caching, or fast-executing automated unit and integration testing pipelines. 
-/// Memory pointer swaps and lookup structures run in O(1) constant time, while expression-driven queries 
-/// execute as linear O(N) scans via runtime reflection compilation.
+/// The store keeps entities isolated from caller state: a field-wise copy is taken on every write and
+/// returned on every read, so mutating an instance after handing it to the store (or after reading one
+/// back) has no effect until the next <see cref="UpdateAsync"/>. The copy is shallow &#8212; reference-typed
+/// members (nested entities, collections) are shared between the caller's instance and the stored copy.
 /// </remarks>
-/// <typeparam name="TId">The unique identifier type for the entities. Must be non-nullable and support equality checks.</typeparam>
-/// <typeparam name="TEntity">The reference type of the domain or database entity being managed.</typeparam>
-public class InMemoryStore<TId, TEntity>(
-    Func<TEntity, TId> idSelector,
-    Func<TEntity, string>? versionSelector = null,
-    Action<TEntity, string>? versionUpdater = null
-) : IStore<TId, TEntity>
-    where TId : IEquatable<TId>
-    where TEntity : class, IStoredEntity<TId>
+/// <typeparam name="TEntity">The reference type of the entity being managed.</typeparam>
+/// <typeparam name="TKey">The non-nullable primary-key type.</typeparam>
+public class InMemoryStore<TEntity, TKey>(Func<TEntity, TKey>? idSelector = null) : IStore<TEntity, TKey>
+    where TEntity : class, IStoredEntity<TKey>
+    where TKey : notnull
 {
-    // Thread-safe collection to store entities by their unique ID
-    private readonly ConcurrentDictionary<TId, TEntity> _storage = new();
+    private static readonly ConcurrentDictionary<Type, FieldInfo[]> FieldCache = new();
 
-    // Delegate or function to extract the ID from an entity dynamically
-    private readonly Func<TEntity, TId> _idSelector = idSelector ?? throw new ArgumentNullException(nameof(idSelector));
+    private readonly ConcurrentDictionary<TKey, TEntity> _storage = new();
+    private readonly Func<TEntity, TKey> _idSelector = idSelector ?? (e => e.Id);
 
-    // Delegates to read and assign the concurrency version safely
-    private readonly Func<TEntity, string> _versionSelector =
-        versionSelector ?? (e => e.ConcurrencyToken);
+    // A soft-deleted entity is hidden from every read path (Query, GetById, GetAll, Find*, ContainsKey).
+    // Entities that don't implement ISoftDeletable are always visible.
+    private static bool IsSoftDeleted(TEntity entity) => entity is ISoftDeletable { IsDeleted: true };
 
-    private readonly Action<TEntity, string> _versionUpdater =
-        versionUpdater ?? ((entity, token) => { entity.ConcurrencyToken = token; });
+    /// <summary> Applies store-assigned insert fields: the given concurrency token and audit timestamps. </summary>
+    private static void StampForInsert(TEntity entity, Guid version, DateTimeOffset now)
+    {
+        if (entity is IConcurrentEntity concurrent)
+        {
+            concurrent.ConcurrencyToken = version;
+        }
+
+        if (entity is IAudit audit)
+        {
+            audit.Created = now;
+            audit.LastUpdated = now;
+        }
+    }
+
+    /// <summary> Returns a field-wise shallow copy, decoupling stored state from the caller's instance. </summary>
+    private static TEntity Detach(TEntity source)
+    {
+        Type type = source.GetType();
+        var copy = (TEntity)RuntimeHelpers.GetUninitializedObject(type);
+
+        foreach (FieldInfo field in FieldCache.GetOrAdd(type, ReadInstanceFields))
+        {
+            field.SetValue(copy, field.GetValue(source));
+        }
+
+        return copy;
+    }
+
+    private static FieldInfo[] ReadInstanceFields(Type type)
+    {
+        const BindingFlags flags =
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+
+        var fields = new List<FieldInfo>();
+        for (Type? level = type; level is not null && level != typeof(object); level = level.BaseType)
+        {
+            fields.AddRange(level.GetFields(flags));
+        }
+
+        return fields.ToArray();
+    }
 
     /// <inheritdoc/>
-    public Task<TEntity> Add(TEntity? entity, CancellationToken cancellationToken = default)
+    public IQueryable<TEntity> Query() =>
+        _storage.Values.Where(e => !IsSoftDeleted(e)).Select(Detach).AsQueryable();
+
+    /// <inheritdoc/>
+    public Task<TEntity> AddAsync(TEntity entity, CancellationToken cancellationToken = default)
     {
-        // 1. Validate input immediately before dealing with async tasks
         if (entity == null)
         {
             return Task.FromException<TEntity>(new ArgumentNullException(nameof(entity)));
         }
 
-        // 2. Honor the cancellation token immediately before starting any work
         if (cancellationToken.IsCancellationRequested)
         {
             return Task.FromCanceled<TEntity>(cancellationToken);
@@ -53,43 +93,38 @@ public class InMemoryStore<TId, TEntity>(
 
         try
         {
-            // 3. Extract the primary key from the object
-            TId id = _idSelector(entity);
+            TKey id = _idSelector(entity);
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            Guid version = Guid.CreateVersion7(now);
 
-            // 4. Attempt a thread-safe insertion
-            if (!_storage.TryAdd(id, entity))
+            // Publish an already-stamped copy so a concurrent reader never sees an unstamped row,
+            // and the caller's instance is left untouched if the insert fails.
+            TEntity candidate = Detach(entity);
+            StampForInsert(candidate, version, now);
+
+            if (!_storage.TryAdd(id, candidate))
             {
-                throw new ArgumentException($"An item with the ID '{id}' already exists in the store.");
+                throw new ArgumentException(RS.DuplicateId(id));
             }
 
-            DateTimeOffset now = DateTimeOffset.UtcNow;
-            string newVersionToken = now.Ticks.ToString();            
-            _versionUpdater(entity, newVersionToken);
-            
-            entity.Created = now;
-            entity.LastUpdated = now;
-
-            // 5. Complete synchronously since no physical disk or network I/O happened
+            StampForInsert(entity, version, now);
             return Task.FromResult(entity);
         }
         catch (Exception ex)
         {
-            // Return failed tasks for internal system exceptions to preserve the async signature behavior
             return Task.FromException<TEntity>(ex);
         }
     }
 
     /// <inheritdoc/>
-    public Task<IEnumerable<TEntity>> AddRange(IEnumerable<TEntity> entities,
+    public Task<IEnumerable<TEntity>> AddRangeAsync(IEnumerable<TEntity> entities,
         CancellationToken cancellationToken = default)
     {
-        // 1. Validate the primary input argument
-        if (entities == null) // this will never happen, assuming IEnumerable<TEntity> is not nullable
+        if (entities == null)
         {
             return Task.FromException<IEnumerable<TEntity>>(new ArgumentNullException(nameof(entities)));
         }
 
-        // 2. Honor the cancellation token immediately before starting any work
         if (cancellationToken.IsCancellationRequested)
         {
             return Task.FromCanceled<IEnumerable<TEntity>>(cancellationToken);
@@ -97,40 +132,39 @@ public class InMemoryStore<TId, TEntity>(
 
         try
         {
-            // Track items added during this batch operation to facilitate rollback or return paths
-            var addedIds = new List<TId>();
+            var addedIds = new List<TKey>();
             var addedEntities = new List<TEntity>();
 
-            foreach (var entity in entities)
+            // One timestamp for the whole batch; a distinct concurrency token per row.
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            foreach (TEntity entity in entities)
             {
-                // Periodically check cancellation inside the loop for larger batches
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    Rollback(addedIds);
+                    RollBack(addedIds);
                     return Task.FromCanceled<IEnumerable<TEntity>>(cancellationToken);
                 }
 
                 if (entity == null)
                 {
-                    Rollback(addedIds);
-                    throw new ArgumentNullException(nameof(entities), "The collection contains a null entity entry.");
+                    RollBack(addedIds);
+                    throw new ArgumentNullException(nameof(entities), RS.NullEntityInBatch());
                 }
 
-                TId id = _idSelector(entity);
+                TKey id = _idSelector(entity);
+                Guid version = Guid.CreateVersion7(now);
 
-                // Attempt atomic insertion. Roll back the entire batch if a duplicate ID breaks transactional integrity.
-                if (!_storage.TryAdd(id, entity))
+                TEntity candidate = Detach(entity);
+                StampForInsert(candidate, version, now);
+
+                if (!_storage.TryAdd(id, candidate))
                 {
-                    Rollback(addedIds);
-                    throw new ArgumentException($"An item with the ID '{id}' already exists. Transaction aborted.");
+                    RollBack(addedIds);
+                    throw new ArgumentException(RS.DuplicateId(id));
                 }
 
-                DateTimeOffset now = DateTimeOffset.UtcNow;
-                string newVersionToken = now.Ticks.ToString();            
-                _versionUpdater(entity, newVersionToken);
-                entity.Created = now;
-                entity.LastUpdated = now;
-
+                StampForInsert(entity, version, now);
                 addedIds.Add(id);
                 addedEntities.Add(entity);
             }
@@ -144,49 +178,58 @@ public class InMemoryStore<TId, TEntity>(
     }
 
     /// <inheritdoc/>
-    public Task<bool> ContainsKey(TId id, CancellationToken cancellationToken = default)
+    public Task<bool> ContainsKeyAsync(TKey id, CancellationToken cancellationToken = default)
     {
-        // 1. Validate input immediately
         if (id == null)
         {
             return Task.FromException<bool>(new ArgumentNullException(nameof(id)));
         }
 
-        // 2. Honor cancellation token before reading state
         if (cancellationToken.IsCancellationRequested)
         {
             return Task.FromCanceled<bool>(cancellationToken);
         }
 
-        // 3. Atomically check existence inside the thread-safe collection
-        bool exists = _storage.ContainsKey(id);
-
-        // 4. Wrap the boolean answer in a completed task to satisfy the interface asynchronously
+        bool exists = _storage.TryGetValue(id, out TEntity? entity) && !IsSoftDeleted(entity);
         return Task.FromResult(exists);
     }
 
     /// <inheritdoc/>
-    public Task<bool> Delete(TId id, CancellationToken cancellationToken = default)
+    public Task<bool> DeleteAsync(TKey id, CancellationToken cancellationToken = default)
     {
-        // 1. Validate input immediately
         if (id == null)
         {
             return Task.FromException<bool>(new ArgumentNullException(nameof(id)));
         }
 
-        // 2. Honor cancellation token before mutating data
         if (cancellationToken.IsCancellationRequested)
         {
             return Task.FromCanceled<bool>(cancellationToken);
         }
 
-        // TryRemove returns true if the key was found and removed, false otherwise
-        bool removed = _storage.TryRemove(id, out _);
-        return Task.FromResult(removed);
+        if (!_storage.TryGetValue(id, out TEntity? entity))
+        {
+            return Task.FromResult(false);
+        }
+
+        if (entity is ISoftDeletable soft)
+        {
+            // Idempotent: an already soft-deleted row is invisible to reads, so re-deleting changes nothing.
+            if (soft.IsDeleted)
+            {
+                return Task.FromResult(false);
+            }
+
+            soft.IsDeleted = true;
+            soft.DeletedAt = DateTimeOffset.UtcNow;
+            return Task.FromResult(true);
+        }
+
+        return Task.FromResult(_storage.TryRemove(id, out _));
     }
 
     /// <inheritdoc/>
-    public Task<bool> Delete(TEntity entity, CancellationToken cancellationToken = default)
+    public Task<bool> DeleteAsync(TEntity entity, CancellationToken cancellationToken = default)
     {
         if (entity == null)
         {
@@ -195,9 +238,7 @@ public class InMemoryStore<TId, TEntity>(
 
         try
         {
-            // Extract the key using the configured selector and route to the primary delete routine
-            TId id = _idSelector(entity);
-            return Delete(id, cancellationToken);
+            return DeleteAsync(_idSelector(entity), cancellationToken);
         }
         catch (Exception ex)
         {
@@ -206,16 +247,14 @@ public class InMemoryStore<TId, TEntity>(
     }
 
     /// <inheritdoc/>
-    public Task<IEnumerable<TEntity>> FindAllBy(Expression<Func<TEntity, bool>> predicate,
+    public Task<IEnumerable<TEntity>> FindAllByAsync(Expression<Func<TEntity, bool>> predicate,
         CancellationToken cancellationToken = default)
     {
-        // 1. Validate parameters immediately
         if (predicate == null)
         {
             return Task.FromException<IEnumerable<TEntity>>(new ArgumentNullException(nameof(predicate)));
         }
 
-        // 2. Check cancellation token before running expression compilation
         if (cancellationToken.IsCancellationRequested)
         {
             return Task.FromCanceled<IEnumerable<TEntity>>(cancellationToken);
@@ -223,28 +262,23 @@ public class InMemoryStore<TId, TEntity>(
 
         try
         {
-            // 3. Compile the Expression Tree into an executable Func delegate
-            Func<TEntity, bool> compiledPredicate = predicate.Compile();
+            Func<TEntity, bool> compiled = predicate.Compile();
+            var matches = new List<TEntity>();
 
-            var matchedResults = new List<TEntity>();
-
-            // 4. Iterate over a thread-safe snapshot of the storage values
             foreach (TEntity entity in _storage.Values)
             {
-                // Check cancellation mid-loop to remain responsive during large table scans
                 if (cancellationToken.IsCancellationRequested)
                 {
                     return Task.FromCanceled<IEnumerable<TEntity>>(cancellationToken);
                 }
 
-                if (compiledPredicate(entity))
+                if (!IsSoftDeleted(entity) && compiled(entity))
                 {
-                    matchedResults.Add(entity);
+                    matches.Add(Detach(entity));
                 }
             }
 
-            // 5. Wrap the finalized list inside a completed task
-            return Task.FromResult<IEnumerable<TEntity>>(matchedResults);
+            return Task.FromResult<IEnumerable<TEntity>>(matches);
         }
         catch (Exception ex)
         {
@@ -253,16 +287,14 @@ public class InMemoryStore<TId, TEntity>(
     }
 
     /// <inheritdoc/>
-    public Task<TEntity?> FindBy(Expression<Func<TEntity, bool>> predicate,
+    public Task<TEntity?> FindByAsync(Expression<Func<TEntity, bool>> predicate,
         CancellationToken cancellationToken = default)
     {
-        // 1. Validate input arguments
         if (predicate == null)
         {
             return Task.FromException<TEntity?>(new ArgumentNullException(nameof(predicate)));
         }
 
-        // 2. Honor cancellation token before reading state
         if (cancellationToken.IsCancellationRequested)
         {
             return Task.FromCanceled<TEntity?>(cancellationToken);
@@ -270,25 +302,21 @@ public class InMemoryStore<TId, TEntity>(
 
         try
         {
-            // 3. Compile the Expression Tree into an executable Func delegate
-            Func<TEntity, bool> compiledPredicate = predicate.Compile();
+            Func<TEntity, bool> compiled = predicate.Compile();
 
-            // 4. Iterate over a thread-safe snapshot of values
-            foreach (var entity in _storage.Values)
+            foreach (TEntity entity in _storage.Values)
             {
-                // Verify cancellation mid-loop if dealing with a high volume of entries
                 if (cancellationToken.IsCancellationRequested)
                 {
                     return Task.FromCanceled<TEntity?>(cancellationToken);
                 }
 
-                if (compiledPredicate(entity))
+                if (!IsSoftDeleted(entity) && compiled(entity))
                 {
-                    return Task.FromResult<TEntity?>(entity);
+                    return Task.FromResult<TEntity?>(Detach(entity));
                 }
             }
 
-            // 5. Explicitly return null if no matching records are discovered
             return Task.FromResult<TEntity?>(null);
         }
         catch (Exception ex)
@@ -298,121 +326,118 @@ public class InMemoryStore<TId, TEntity>(
     }
 
     /// <inheritdoc/>
-    public Task<IEnumerable<TEntity>> GetAll(CancellationToken cancellationToken = default)
+    public Task<IEnumerable<TEntity>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        // 1. Honor cancellation token immediately
         if (cancellationToken.IsCancellationRequested)
         {
             return Task.FromCanceled<IEnumerable<TEntity>>(cancellationToken);
         }
 
-        // 2. Extract a thread-safe snapshot of the values collection
-        // ConcurrentDictionary.Values extracts a snapshot copy to prevent subsequent mutations from breaking iteration
-        IEnumerable<TEntity> currentValues = _storage.Values;
+        IEnumerable<TEntity> snapshot = _storage.Values
+            .Where(e => !IsSoftDeleted(e))
+            .Select(Detach)
+            .ToList();
 
-        return Task.FromResult(currentValues);
+        return Task.FromResult(snapshot);
     }
 
     /// <inheritdoc/>
-    public Task<TEntity?> GetById(TId id, CancellationToken cancellationToken = default)
+    public Task<TEntity?> GetByIdAsync(TKey id, CancellationToken cancellationToken = default)
     {
-        // 1. Validate input immediately
         if (id == null)
         {
             return Task.FromException<TEntity?>(new ArgumentNullException(nameof(id)));
         }
 
-        // 2. Honor cancellation token before reading state
         if (cancellationToken.IsCancellationRequested)
         {
             return Task.FromCanceled<TEntity?>(cancellationToken);
         }
 
-        // 3. Atomically look up the key in the thread-safe collection
-        if (_storage.TryGetValue(id, out TEntity? entity))
+        if (_storage.TryGetValue(id, out TEntity? entity) && !IsSoftDeleted(entity))
         {
-            return Task.FromResult<TEntity?>(entity);
+            return Task.FromResult<TEntity?>(Detach(entity));
         }
 
-        // 4. Return null inside a completed task to mimic a missing database record
         return Task.FromResult<TEntity?>(null);
     }
 
     /// <summary>
-    /// Flushes staged mutations down to the persistent backend. 
-    /// For an in-memory store, operations are instant, making this a high-performance no-op.
+    /// No-op for the in-memory store: writes are applied immediately by the other methods.
     /// </summary>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-    /// <returns>A task that represents the synchronous completion of the save operation.</returns>
-    /// <exception cref="OperationCanceledException">Thrown if the operation is canceled via the cancellation token.</exception>
-    public Task<int> SaveChanges(CancellationToken cancellationToken = default)
-    {
-        // Honor the cancellation token immediately
-        if (cancellationToken.IsCancellationRequested)
-        {
-            return Task.FromCanceled<int>(cancellationToken);
-        }
-
-        // The in-memory store applies updates instantly, so return 0 or a mocked row count
-        return Task.FromResult(0);
-    }
+    /// <returns>Always <c>0</c>.</returns>
+    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
+        cancellationToken.IsCancellationRequested
+            ? Task.FromCanceled<int>(cancellationToken)
+            : Task.FromResult(0);
 
     /// <inheritdoc/>
-    public Task<TEntity> Update(TEntity entity, CancellationToken cancellationToken = default)
+    public Task<TEntity> UpdateAsync(TEntity entity, CancellationToken cancellationToken = default)
     {
-        // 1. Validate input immediately
         if (entity == null)
         {
             return Task.FromException<TEntity>(new ArgumentNullException(nameof(entity)));
         }
 
-        // 2. Honor cancellation token before modifying state
         if (cancellationToken.IsCancellationRequested)
         {
             return Task.FromCanceled<TEntity>(cancellationToken);
         }
 
-        // 3. Extract the primary key from the object
-        TId id = _idSelector(entity);
+        TKey id = _idSelector(entity);
+        Guid? baselineToken = (entity as IConcurrentEntity)?.ConcurrencyToken;
 
-        // ConcurrentDictionary.Update requires a loop pattern to handle atomic compare-and-swap safely
+        // ConcurrentDictionary.TryUpdate is a compare-and-swap; loop to retry when another writer wins the race.
         while (true)
         {
-            // 1. Ensure the record actually exists first
-            if (!_storage.TryGetValue(id, out TEntity? existingEntity))
+            if (!_storage.TryGetValue(id, out TEntity? stored))
             {
-                return Task.FromException<TEntity>(
-                    new KeyNotFoundException($"Cannot update item. ID '{id}' not found."));
+                return Task.FromException<TEntity>(new KeyNotFoundException(RS.KeyNotFound(id)));
             }
 
-            // 2. Extract tokens from both the existing data and the incoming update payload
-            string currentStoredVersion = _versionSelector(existingEntity);
-            string incomingVersion = _versionSelector(entity);
-
-            // 3. Concurrency Check: If they don't match, another thread modified this row in the background
-            if (currentStoredVersion != incomingVersion)
+            // The incoming payload must carry the token it was last read with; anything else means a
+            // concurrent writer moved the row (either since the caller read it, or since our last retry).
+            if (stored is IConcurrentEntity storedToken && storedToken.ConcurrencyToken != baselineToken)
             {
-                // This mimics Entity Framework's DbUpdateConcurrencyException
-                return Task.FromException<TEntity>(new InvalidOperationException(
-                    $"Concurrency violation encountered. The entity with ID '{id}' has been modified by another process."));
+                return Task.FromException<TEntity>(new InvalidOperationException(RS.ConcurrencyViolation(id)));
             }
 
-            // 4. Generate a brand new version token for this update cycle
-            string newVersionToken = DateTimeOffset.UtcNow.Ticks.ToString();
-            _versionUpdater(entity, newVersionToken);
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            Guid nextToken = Guid.CreateVersion7(now);
 
-            // 5. Perform an atomic pointer replacement. 
-            // If another thread slipped past us and swapped existingEntity out right now, TryUpdate returns false.
-            if (_storage.TryUpdate(id, entity, existingEntity))
+            // Build the row to store from a detached copy so the caller's instance is only touched on success.
+            TEntity candidate = Detach(entity);
+            if (candidate is IConcurrentEntity candidateToken)
             {
-                return Task.FromResult(entity); // Success! Break out of loop.
+                candidateToken.ConcurrencyToken = nextToken;
+            }
+
+            if (candidate is IAudit candidateAudit)
+            {
+                candidateAudit.LastUpdated = now;
+            }
+
+            if (_storage.TryUpdate(id, candidate, stored))
+            {
+                if (entity is IConcurrentEntity entityToken)
+                {
+                    entityToken.ConcurrencyToken = nextToken;
+                }
+
+                if (entity is IAudit entityAudit)
+                {
+                    entityAudit.LastUpdated = now;
+                }
+
+                return Task.FromResult(entity);
             }
         }
     }
 
-    private void Rollback(IEnumerable<TId> idsToRemove)
+    private void RollBack(IEnumerable<TKey> ids)
     {
-        foreach (TId id in idsToRemove)
+        foreach (TKey id in ids)
         {
             _storage.TryRemove(id, out _);
         }
@@ -420,15 +445,8 @@ public class InMemoryStore<TId, TEntity>(
 }
 
 /// <summary>
-/// A high-performance, thread-safe, in-memory implementation of the <see cref="IStore{TId, TEntity}"/> contract.
+/// A thread-safe, in-memory <see cref="IStore{TEntity, TKey}"/> for entities keyed by <see cref="long"/>.
 /// </summary>
-/// <remarks>
-/// This class uses an internal <see cref="System.Collections.Concurrent.ConcurrentDictionary{TKey, TValue}"/> 
-/// to manage entities, making it highly suitable for high-concurrency web applications, lightweight 
-/// local caching, or fast-executing automated unit and integration testing pipelines. 
-/// Memory pointer swaps and lookup structures run in O(1) constant time, while expression-driven queries 
-/// execute as linear O(N) scans via runtime reflection compilation.
-/// </remarks>
-/// <typeparam name="TEntity">The reference type of the domain or database entity being managed.</typeparam>
-public class InMemoryStore<TEntity>() : InMemoryStore<long, TEntity>(entity => entity.Id)
+/// <typeparam name="TEntity">The reference type of the entity being managed.</typeparam>
+public class InMemoryStore<TEntity>() : InMemoryStore<TEntity, long>(entity => entity.Id)
     where TEntity : class, IStoredEntity<long>;

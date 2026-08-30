@@ -1,4 +1,4 @@
-﻿using Auturge.Identifiers;
+using Auturge.Identifiers;
 using Auturge.Stores.Tests.TestObjects;
 
 namespace Auturge.Stores.Tests;
@@ -6,72 +6,78 @@ namespace Auturge.Stores.Tests;
 [TestFixture]
 public class StoreAddTests
 {
-    [SetUp]
-    public void Setup()
-    {
-    }
-
     [Test]
-    public async Task AddAsync_WhenEntityIsValid_ShouldInsertSuccessfully()
+    public async Task AddAsync_Should_InsertEntity_When_EntityIsValid()
     {
         var store = new UserStore();
         var user = new User("maxHeadroom") { GivenName = "Max", SurName = "Headroom" };
 
-        Assert.DoesNotThrowAsync(async () => await store.Add(user));
+        await store.AddAsync(user);
 
-        User? retrieved = await store.GetById(user.Id);
+        User? retrieved = await store.GetByIdAsync(user.Id);
         Assert.That(retrieved, Is.Not.Null);
-        Assert.That(retrieved!.GivenName, Is.EqualTo(user.GivenName));
+        Assert.That(retrieved!.GivenName, Is.EqualTo("Max"));
     }
 
     [Test]
-    public async Task AddAsync_WhenEntityIsNull_ShouldThrowArgumentNullException()
+    public async Task AddAsync_Should_StampCreatedAndLastUpdated_When_EntityIsAudited()
     {
-        // Arrange
+        var store = new UserStore();
+        var user = new User("stamped") { Created = DateTimeOffset.MinValue, LastUpdated = DateTimeOffset.MinValue };
+        var before = DateTimeOffset.UtcNow;
+
+        await store.AddAsync(user);
+
+        Assert.That(user.Created, Is.GreaterThanOrEqualTo(before));
+        Assert.That(user.LastUpdated, Is.EqualTo(user.Created));
+    }
+
+    [Test]
+    public async Task AddAsync_Should_AssignVersion_When_EntityIsConcurrent()
+    {
+        var store = new UserStore();
+        var user = new User("versioned");
+
+        await store.AddAsync(user);
+
+        Assert.That(user.ConcurrencyToken, Is.Not.EqualTo(Guid.Empty));
+    }
+
+    [Test]
+    public void AddAsync_Should_ThrowArgumentNullException_When_EntityIsNull()
+    {
         var store = new UserStore();
 
-        // Act & Assert
-        // Because our implementation validates and returns Task.FromException immediately 
-        // without awaiting inside a state machine, the exception surfaces right away.
-        var exception = Assert.ThrowsAsync<ArgumentNullException>(async () => await store.Add(null!));
+        ArgumentNullException? exception =
+            Assert.ThrowsAsync<ArgumentNullException>(async () => await store.AddAsync(null!));
 
-        // Assert
-        Assert.That(exception.ParamName, Is.EqualTo("entity"));
+        Assert.That(exception!.ParamName, Is.EqualTo("entity"));
     }
 
     [Test]
-    public async Task AddAsync_WhenIdAlreadyExists_ShouldThrowArgumentException()
+    public async Task AddAsync_Should_ThrowArgumentException_When_IdAlreadyExists()
     {
-        // Arrange
         var store = new UserStore();
         long duplicateId = Flake.NewFlake();
-        var originalEntity = new User(duplicateId, "Original");
-        var duplicateEntity = new User(duplicateId, "Duplicate");
+        await store.AddAsync(new User(duplicateId, "Original"));
 
-        await store.Add(originalEntity);
+        ArgumentException? exception = Assert.ThrowsAsync<ArgumentException>(
+            async () => await store.AddAsync(new User(duplicateId, "Duplicate")));
 
-        // Act & Assert
-        ArgumentException? exception =
-            Assert.ThrowsAsync<ArgumentException>(async () => await store.Add(duplicateEntity));
-
-        Assert.That(exception.Message, Does.Contain($"'{duplicateId}' already exists"));
+        Assert.That(exception!.Message, Does.Contain($"'{duplicateId}' already exists"));
     }
 
     [Test]
-    public async Task AddAsync_WhenCancellationIsRequested_ShouldThrowOperationCanceledException()
+    public async Task AddAsync_Should_ThrowAndNotTrack_When_CancellationIsRequested()
     {
-        // Arrange
         var store = new UserStore();
-        var entity = new User("Cancelled Run");
-
+        var user = new User("Cancelled Run");
         using var cts = new CancellationTokenSource();
-        await cts.CancelAsync(); // Force immediate cancellation state
+        await cts.CancelAsync();
 
-        // Act & Assert
-        Assert.ThrowsAsync<TaskCanceledException>(async () => await store.Add(entity, cts.Token));
+        Assert.ThrowsAsync<TaskCanceledException>(async () => await store.AddAsync(user, cts.Token));
 
-        // Ensure data was never tracked due to early exit
-        User? retrieved = await store.GetById(entity.Id);
+        User? retrieved = await store.GetByIdAsync(user.Id);
         Assert.That(retrieved, Is.Null);
     }
 }

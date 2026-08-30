@@ -1,65 +1,82 @@
 using System.Linq.Expressions;
-using Auturge.Stores.Stores;
 
 namespace Auturge.Stores;
 
-public abstract class Store<TEntity> : Store<long, TEntity>
-    where TEntity : class, IStoredEntity<long>
+/// <summary> Base repository that delegates every operation to an injected <see cref="IStore{TEntity}"/> backend. </summary>
+/// <typeparam name="TEntity">The reference type of the entity managed by the store.</typeparam>
+public abstract class Store<TEntity> : IStore<TEntity>
+    where TEntity : class, IStoredEntity
 {
-    protected Store(IStore<long, TEntity> store) : base(store)
+    private readonly IStore<TEntity> _backend;
+
+    protected Store(IStore<TEntity> backend)
     {
+        ArgumentNullException.ThrowIfNull(backend);
+        _backend = backend;
     }
 
-    protected Store() : base(new InMemoryStore<TEntity>())
-    {
-    }
+    /// <inheritdoc/>
+    public IQueryable<TEntity> Query() => _backend.Query();
+
+    /// <inheritdoc/>
+    public Task<TEntity> AddAsync(TEntity entity, CancellationToken cancellationToken = default)
+        => _backend.AddAsync(entity, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<TEntity>> AddRangeAsync(IEnumerable<TEntity> entities,
+        CancellationToken cancellationToken = default)
+        => _backend.AddRangeAsync(entities, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task<bool> DeleteAsync(TEntity entity, CancellationToken cancellationToken = default)
+        => _backend.DeleteAsync(entity, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<TEntity>> FindAllByAsync(Expression<Func<TEntity, bool>> predicate,
+        CancellationToken cancellationToken = default)
+        => _backend.FindAllByAsync(predicate, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task<TEntity?> FindByAsync(Expression<Func<TEntity, bool>> predicate,
+        CancellationToken cancellationToken = default)
+        => _backend.FindByAsync(predicate, cancellationToken);
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<TEntity>> GetAllAsync(CancellationToken cancellationToken = default)
+        => _backend.GetAllAsync(cancellationToken);
+
+    /// <inheritdoc/>
+    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        => _backend.SaveChangesAsync(cancellationToken);
+
+    /// <inheritdoc/>
+    public Task<TEntity> UpdateAsync(TEntity entity, CancellationToken cancellationToken = default)
+        => _backend.UpdateAsync(entity, cancellationToken);
 }
 
-public abstract class Store<TId, TEntity> : IStore<TId, TEntity>
-    where TEntity : class, IStoredEntity<TId>
-    where TId : IEquatable<TId>
+/// <summary> Base repository for single-key entities, delegating to an injected <see cref="IStore{TEntity, TKey}"/> backend. </summary>
+/// <typeparam name="TEntity">The reference type of the entity managed by the store.</typeparam>
+/// <typeparam name="TKey">The non-nullable type of the primary key.</typeparam>
+public abstract class Store<TEntity, TKey> : Store<TEntity>, IStore<TEntity, TKey>
+    where TEntity : class, IStoredEntity<TKey>
+    where TKey : notnull
 {
-    private readonly IStore<TId, TEntity> _store;
+    private readonly IStore<TEntity, TKey> _backend;
 
-    // ReSharper disable once ConvertToPrimaryConstructor
-    protected Store(IStore<TId, TEntity> store)
+    protected Store(IStore<TEntity, TKey> backend) : base(backend)
     {
-        _store = store;
+        _backend = backend;
     }
 
-    public Task<TEntity> Add(TEntity entity, CancellationToken cancellationToken = default) =>
-        _store.Add(entity, cancellationToken);
+    /// <inheritdoc/>
+    public Task<bool> ContainsKeyAsync(TKey id, CancellationToken cancellationToken = default)
+        => _backend.ContainsKeyAsync(id, cancellationToken);
 
-    public Task<IEnumerable<TEntity>> AddRange(IEnumerable<TEntity> entities,
-        CancellationToken cancellationToken = default)
-        => _store.AddRange(entities, cancellationToken);
+    /// <inheritdoc/>
+    public Task<bool> DeleteAsync(TKey id, CancellationToken cancellationToken = default)
+        => _backend.DeleteAsync(id, cancellationToken);
 
-    public Task<bool> ContainsKey(TId id, CancellationToken cancellationToken = default)
-        => _store.ContainsKey(id, cancellationToken);
-
-    public Task<IEnumerable<TEntity>> FindAllBy(Expression<Func<TEntity, bool>> predicate,
-        CancellationToken cancellationToken = default)
-        => _store.FindAllBy(predicate, cancellationToken);
-
-    public Task<TEntity?> FindBy(Expression<Func<TEntity, bool>> predicate,
-        CancellationToken cancellationToken = default)
-        => _store.FindBy(predicate, cancellationToken);
-
-    public Task<TEntity?> GetById(TId id, CancellationToken cancellationToken = default)
-        => _store.GetById(id, cancellationToken);
-
-    public Task<IEnumerable<TEntity>> GetAll(CancellationToken cancellationToken = default)
-        => _store.GetAll(cancellationToken);
-
-    public Task<TEntity> Update(TEntity entity, CancellationToken cancellationToken = default)
-        => _store.Update(entity, cancellationToken);
-
-    public Task<bool> Delete(TId id, CancellationToken cancellationToken = default)
-        => _store.Delete(id, cancellationToken);
-
-    public Task<bool> Delete(TEntity entity, CancellationToken cancellationToken = default)
-        => _store.Delete(entity, cancellationToken);
-
-    public Task<int> SaveChanges(CancellationToken cancellationToken = default)
-        => _store.SaveChanges(cancellationToken);
+    /// <inheritdoc/>
+    public Task<TEntity?> GetByIdAsync(TKey id, CancellationToken cancellationToken = default)
+        => _backend.GetByIdAsync(id, cancellationToken);
 }
