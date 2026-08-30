@@ -156,7 +156,10 @@ public class Dimension : DimensionVector,
 
     public static Dimension Reciprocal(Dimension dim)
     {
-        return new Dimension(null, "1/" + dim.DisplayName, "1/" + dim.Symbol, dim.Reciprocal());
+        // Reciprocate the underlying exponent vector — NOT dim.Reciprocal(), which is this very
+        // method and would recurse forever.
+        DimensionVector reciprocalVector = ((DimensionVector)dim).Reciprocal();
+        return new Dimension(null, "1/" + dim.DisplayName, "1/" + dim.Symbol, reciprocalVector);
     }
 
     #endregion Arithmetic Operators

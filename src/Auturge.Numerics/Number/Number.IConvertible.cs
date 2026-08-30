@@ -129,7 +129,7 @@ public partial struct Number : IConvertible
 
             if (conversionType == typeof(decimal)) value = Convert.ToDecimal(str);
             if (conversionType == typeof(double)) value = Convert.ToDouble(str);
-            if (conversionType == typeof(float)) value = Convert.ToDecimal(str);
+            if (conversionType == typeof(float)) value = Convert.ToSingle(str);
             if (conversionType == typeof(Half)) value = Half.Parse(str);
 
             if (value == null) return ConversionResult.UnsupportedType;

@@ -6,9 +6,9 @@ public abstract class Formula<TValue, T1>(params Func<TValue, T1, TValue>[] oper
 
     public TValue Apply(TValue value, T1 arg)
     {
-        TValue obj = value;
+        TValue accumulator = value;
         foreach (Func<TValue, T1, TValue> operation in Operations)
-            obj = (TValue)operation.Method.Invoke(value, [value, arg])!;
-        return obj;
+            accumulator = operation(accumulator, arg);
+        return accumulator;
     }
 }

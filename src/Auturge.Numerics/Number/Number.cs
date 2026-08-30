@@ -71,6 +71,15 @@ public partial struct Number
 
         Sign = significand.IsZero ? 0 : IsNegative ? -1 : 1;
 
+        // DecimalOffset is a negative exponent (a fractional-digit count), so it is never negative.
+        // A negative offset means a positive power of ten, which has no place in that shape — bake it
+        // into the significand instead. Mirrors the same fold done on the scientific-notation parse path.
+        if (exponent < 0)
+        {
+            significand *= BigInteger.Pow(10, -exponent);
+            exponent = 0;
+        }
+
         _digitCount = CountDigits(significand);
         TrimRight(ref exponent, ref significand, ref _digitCount);
         RawValue = significand;
