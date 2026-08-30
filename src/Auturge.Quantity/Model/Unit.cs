@@ -293,7 +293,9 @@ public sealed class Unit : IEquatable<Unit>, IHaveNameAndSymbol, IHaveSynonyms<U
     public static Unit Reciprocal(Unit unit)
     {
         var definition = unit.Definition.Reciprocal();
-        var dimension = Dimensions.Find(unit.Dimension.Reciprocal());
+        // FindOrAdd, not Find: the reciprocal of an arbitrary unit's dimension (e.g. 1/length) need
+        // not already be a named library dimension.
+        var dimension = Dimensions.FindOrAdd(unit.Dimension.Reciprocal());
 
         // is there such a unit?
         var existing = Units.TryFind(dimension, definition, out var res);

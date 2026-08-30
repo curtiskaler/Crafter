@@ -41,8 +41,10 @@ public partial struct Number : IUnaryPlusOperators<Number, Number>
 
 public partial struct Number : IUnaryNegationOperators<Number, Number>
 {
-
-    public static Number operator -(Number value) => new(-value.RawValue, value.DecimalOffset);
+    // RawValue is always the magnitude (non-negative), so negation flips the stored sign rather
+    // than negating RawValue — the latter is a no-op for an already-negative value.
+    public static Number operator -(Number value) =>
+        new(value.IsNegative ? value.RawValue : -value.RawValue, value.DecimalOffset);
 }
 
 public partial struct Number : ISubtractionOperators<Number, Number, Number>

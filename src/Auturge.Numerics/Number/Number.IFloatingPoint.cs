@@ -107,8 +107,8 @@ public partial struct Number : IFloatingPoint<Number>
     public static Number Round(Number n, int digits, MidpointRounding mode)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(digits, BigInteger.Zero);
-        if (n.DecimalOffset == digits)
-            return n; // Already right size. Do nothing.
+        if (n.DecimalOffset <= digits)
+            return n; // Already at or below the requested precision. Nothing to round off.
 
         var diff = n.DecimalOffset - digits;
         var multiplier = new BigInteger(1);

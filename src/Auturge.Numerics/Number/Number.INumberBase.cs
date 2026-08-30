@@ -305,13 +305,21 @@ public partial struct Number : INumberBase<Number>
         [MaybeNullWhen(false)] out TOther result)
         => TryConvertTo(value, out result);
 
+    // The truncated value WITH its sign restored. RawValue alone is the magnitude, so the
+    // saturating conversions below would otherwise clamp a negative value against the wrong bound.
+    private static BigInteger TruncatedInteger(Number value)
+    {
+        Number truncated = value.Truncate();
+        return truncated.IsNegative ? -truncated.RawValue : truncated.RawValue;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryConvertTo<TOther>(Number value, [MaybeNullWhen(false)] out TOther result)
         where TOther : INumberBase<TOther>
     {
         if (typeof(TOther) == typeof(byte))
         {
-            var number = value.Truncate().RawValue;
+            var number = TruncatedInteger(value);
             var actualResult =
                 (number >= byte.MaxValue) ? byte.MaxValue :
                 (number <= byte.MinValue) ? byte.MinValue : (byte)number;
@@ -320,7 +328,7 @@ public partial struct Number : INumberBase<Number>
         }
         else if (typeof(TOther) == typeof(char))
         {
-            var number = value.Truncate().RawValue;
+            var number = TruncatedInteger(value);
             var actualResult =
                 (number >= char.MaxValue) ? char.MaxValue :
                 (number <= char.MinValue) ? char.MinValue : (char)number;
@@ -338,7 +346,7 @@ public partial struct Number : INumberBase<Number>
         }
         else if (typeof(TOther) == typeof(ushort))
         {
-            var number = value.Truncate().RawValue;
+            var number = TruncatedInteger(value);
             var actualResult =
                 (number >= ushort.MaxValue) ? ushort.MaxValue :
                 (number <= ushort.MinValue) ? ushort.MinValue : (ushort)number;
@@ -347,7 +355,7 @@ public partial struct Number : INumberBase<Number>
         }
         else if (typeof(TOther) == typeof(uint))
         {
-            var number = value.Truncate().RawValue;
+            var number = TruncatedInteger(value);
             var actualResult =
                 (number >= uint.MaxValue) ? uint.MaxValue :
                 (number <= uint.MinValue) ? uint.MinValue : (uint)number;
@@ -356,7 +364,7 @@ public partial struct Number : INumberBase<Number>
         }
         else if (typeof(TOther) == typeof(ulong))
         {
-            var number = value.Truncate().RawValue;
+            var number = TruncatedInteger(value);
             var actualResult =
                 (number >= ulong.MaxValue) ? ulong.MaxValue :
                 (number <= ulong.MinValue) ? ulong.MinValue : (ulong)number;
@@ -365,7 +373,7 @@ public partial struct Number : INumberBase<Number>
         }
         else if (typeof(TOther) == typeof(UInt128))
         {
-            var number = value.Truncate().RawValue;
+            var number = TruncatedInteger(value);
             var actualResult =
                 (number >= UInt128.MaxValue) ? UInt128.MaxValue :
                 (number <= UInt128.MinValue) ? UInt128.MinValue : (UInt128)number;
@@ -374,7 +382,7 @@ public partial struct Number : INumberBase<Number>
         }
         else if (typeof(TOther) == typeof(nuint))
         {
-            var number = value.Truncate().RawValue;
+            var number = TruncatedInteger(value);
             var actualResult =
                 (number >= nuint.MaxValue) ? nuint.MaxValue :
                 (number <= nuint.MinValue) ? nuint.MinValue : (nuint)number;

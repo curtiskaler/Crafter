@@ -26,7 +26,9 @@ public partial struct Number // Conversion
         if (!IsInteger(number))
             throw new ArgumentException("Number is not an integer.", nameof(number));
 
-        var value = number.RawValue;
+        // RawValue is the magnitude; the smallest type has to account for the sign too
+        // (e.g. -40000 fits in int, not in the unsigned ushort its magnitude would suggest).
+        var value = number.IsNegative ? -number.RawValue : number.RawValue;
         if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
         {
             return typeof(sbyte);
@@ -90,8 +92,8 @@ public partial struct Number // Conversion
         var isDecimal = decimal.TryParse(str, info, out var dec);
         if (isDecimal && dec.ToString(info) == str)
         {
-            if (CanHandle<float>(str, dec, info)) return typeof(float);
-            if (CanHandle<double>(str, dec, info)) return typeof(double);
+            if (CanHandle<float>(str, info)) return typeof(float);
+            if (CanHandle<double>(str, info)) return typeof(double);
             return typeof(decimal);
         }
 
@@ -110,16 +112,16 @@ public partial struct Number // Conversion
         return requiredBits <= allowedBits;
     }
 
-    private static bool CanHandle<T>(string str, decimal dec, NumberFormatInfo info)
+    // "Fits in T without loss" == T's shortest round-trippable rendering of the parsed value is
+    // byte-for-byte the original text. The previous check compared the round-trip delta against
+    // T.Epsilon.ToDecimal(), but every IEEE Epsilon underflows decimal to 0, so it never matched.
+    private static bool CanHandle<T>(string str, NumberFormatInfo info)
         where T : IFloatingPointIeee754<T>, IConvertible
     {
-        var canMaybe = T.TryParse(str, info, out var parsed);
-        if (!canMaybe || parsed == null) return false;
+        if (!T.TryParse(str, NumberStyles.Float, info, out T? parsed) || parsed is null)
+            return false;
 
-        var decFromDbl = parsed.ToDecimal(info);
-        var delta = Math.Abs(dec - decFromDbl);
-        var canHandle = delta < T.Epsilon.ToDecimal(info);
-        return canHandle;
+        return string.Equals(parsed.ToString(null, info), str, StringComparison.Ordinal);
     }
 
     private static bool TryParseFloat(Number number, NumberFormatInfo info, out float result)

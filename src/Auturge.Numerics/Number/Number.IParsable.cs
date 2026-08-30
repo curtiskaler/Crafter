@@ -184,9 +184,10 @@ public partial struct Number // Parsing internals
         // trim out group separator. (the exponent was already split off up front.)
         string noGroups = trimmed.Replace(groupSep, "");
 
-        // return failure on anything that remains
-        // which isn't a digit or decimal separator.
+        // return failure on anything that remains which isn't a digit, or on a decimal
+        // separator that isn't the one and only separator in the number.
         int i = 0;
+        bool sawDecimalSeparator = false;
         while (i < noGroups.Length)
         {
             string str = noGroups[i..];
@@ -194,6 +195,13 @@ public partial struct Number // Parsing internals
 
             if (str.StartsWith(decSep))
             {
+                if (sawDecimalSeparator)
+                {
+                    number = new NumberParseBuffer(NumberParseResult.InvalidCharacter);
+                    return false;
+                }
+
+                sawDecimalSeparator = true;
                 i += decSep.Length;
                 continue;
             }
