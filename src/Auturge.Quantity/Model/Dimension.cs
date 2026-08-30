@@ -180,10 +180,10 @@ public class Dimension : DimensionVector,
         return obj.GetType() == GetType() && Equals((Dimension)obj);
     }
 
-    public override int GetHashCode()
-    {
-        return HashCode.Combine(base.GetHashCode(), Id, DisplayName, Symbol, Synonyms);
-    }
+    // Only the exponent vector participates in Equals — the Id short-circuit implies the same vector
+    // for any real dimension. Folding in Id/DisplayName/Symbol/Synonyms would put two dimensions that
+    // are Equal by vector into different buckets, breaking Dictionary/HashSet keys and Distinct().
+    public override int GetHashCode() => base.GetHashCode();
 
     public static bool operator ==(Dimension? left, Dimension? right)
     {

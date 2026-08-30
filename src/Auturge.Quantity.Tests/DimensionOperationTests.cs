@@ -71,6 +71,45 @@ public class DimensionOperationTests
     }
 
     [Test]
+    public void GetHashCode_Should_MatchTheEqualDimension_When_ExponentVectorsAreEqual()
+    {
+        var custom = new Dimension("my velocity", "v'", -1, 1, 0, 0, 0, 0, 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(custom, Is.EqualTo(Velocity));
+            Assert.That(custom.GetHashCode(), Is.EqualTo(Velocity.GetHashCode()));
+        });
+    }
+
+    [Test]
+    public void GetHashCode_Should_IgnoreDisplayNameAndSymbol_When_ExponentVectorsAreEqual()
+    {
+        var first = new Dimension("dimensions.alpha", "a", 0, 2, 0, 0, 0, 0, 0);
+        var second = new Dimension("dimensions.beta", "b", 0, 2, 0, 0, 0, 0, 0);
+
+        Assert.That(first.GetHashCode(), Is.EqualTo(second.GetHashCode()));
+    }
+
+    [Test]
+    public void GetHashCode_Should_LetAnEqualDimensionResolveTheSameKey_When_UsedInADictionary()
+    {
+        var custom = new Dimension("my velocity", "v'", -1, 1, 0, 0, 0, 0, 0);
+        var lookup = new Dictionary<Dimension, string> { [Velocity] = "v" };
+
+        Assert.That(lookup[custom], Is.EqualTo("v"));
+    }
+
+    [Test]
+    public void GetHashCode_Should_CollapseVectorEqualDimensions_When_AddedToAHashSet()
+    {
+        var custom = new Dimension("my velocity", "v'", -1, 1, 0, 0, 0, 0, 0);
+        var set = new HashSet<Dimension> { Velocity, custom };
+
+        Assert.That(set, Has.Count.EqualTo(1));
+    }
+
+    [Test]
     public void AddSynonym_AppendsAndReturnsSameInstance()
     {
         var dimension = new Dimension("throughput", "tp", 0, 0, 0, 0, 0, 0, 0);

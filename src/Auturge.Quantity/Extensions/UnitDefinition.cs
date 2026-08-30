@@ -3,9 +3,6 @@
 
 using System.Diagnostics;
 
-#pragma warning disable CS0660, CS0661
-#pragma warning disable CS0659 // Type overrides Object.Equals(object o) but does not override Object.GetHashCode()
-
 namespace Auturge.Quantity;
 
 /// <summary>
@@ -56,14 +53,16 @@ public class UnitDefinition : Dictionary<Unit, short>, IEquatable<IDictionary<Un
 
         if (Count != other.Count) return false;
 
-        foreach (var kvp in this)
+        // Match keys by base-unit Id, not by Unit equality: Unit.Equals defers back here for its own
+        // definition check and a base unit's definition contains itself, so a structural key match
+        // would recurse with no base case.
+        Dictionary<long, short> otherById = other.ToDictionary(static kvp => kvp.Key.Id, static kvp => kvp.Value);
+        foreach (KeyValuePair<Unit, short> kvp in this)
         {
-            if (!other.TryGetValue(kvp.Key, out var value))
+            if (!otherById.TryGetValue(kvp.Key.Id, out short value) || value != kvp.Value)
             {
                 return false;
             }
-
-            if (kvp.Value != value) return false;
         }
 
         return true;
@@ -74,6 +73,18 @@ public class UnitDefinition : Dictionary<Unit, short>, IEquatable<IDictionary<Un
         if (obj is null) return false;
         if (ReferenceEquals(this, obj)) return true;
         return obj.GetType() == GetType() && Equals((UnitDefinition)obj);
+    }
+
+    // Order-independent over the (base-unit Id, exponent) entries — the same pairing Equals compares.
+    public override int GetHashCode()
+    {
+        int hash = Count;
+        foreach (KeyValuePair<Unit, short> kvp in this)
+        {
+            hash ^= HashCode.Combine(kvp.Key.Id, kvp.Value);
+        }
+
+        return hash;
     }
 
     public static bool operator ==(UnitDefinition? lhs, UnitDefinition? rhs)
