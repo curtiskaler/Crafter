@@ -1,190 +1,490 @@
-﻿using System.Diagnostics;
 using System.Globalization;
+using System.Numerics;
+using System.Text;
 
 namespace Auturge.Numerics;
 
-// "B" or "b" 	Binary 	                    255 ("b16") -> 0000000011111111
-//      A binary string. (integral types only)      
-
-// "X" or "x" 	Hexadecimal                 255 ("x4") -> 00ff
-//      A hexadecimal string.       (by Integral types only)
-
-// "D" or "d" 	Decimal                     -1234 ("D6") -> -001234                         
-//      Integer digits with optional negative sign. (Integral types only.)
-
-// "R" or "r" 	Round-trip                  -1234567890.12345678 ("R")
-//      A string that can round-trip to an identical number. (Single, Double, and BigInteger)
-
-// "C" or "c" 	Currency                    -123.456 ("C3", fr-FR) -> -123,456 €
-//      A currency value. (all types)
-
-// "E" or "e" 	Exponential (scientific)    -1052.0329112756 ("e2", en-US) -> -1.05e+003
-//      Exponential notation. (all types)
-
-// "F" or "f" 	Fixed-point                 -1234.56 ("F4", en-US) -> -1234.5600
-//      Integral and decimal digits with optional negative sign. (all types)
-
-// "G" or "g" 	General                     123.4546 ("G4", sv-SE) -> 123,5
-//      The more compact of either fixed-point or scientific notation (all types)
-
-// "N" or "n" 	Number                      -1234.56 ("N3", en-US) -> -1,234.560
-//      Integral and decimal digits, group separators, and a decimal separator with optional negative sign. (all types)
-
-// "P" or "p" 	Percent                     -0.39678 ("P1", en-US) -> -39.7 %
-//      Number multiplied by 100 and displayed with a percent symbol. (all types)
-
+/// <summary>
+/// Renders a <see cref="Number"/> according to the .NET standard numeric format strings
+/// (see https://learn.microsoft.com/dotnet/standard/base-types/standard-numeric-format-strings).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <see cref="Number"/> is an exact arbitrary-precision decimal, so every rounding step here is
+/// round-half-away-from-zero on the exact value — there is no representation error to reason about,
+/// and that matches the long-standing behaviour of the framework's fixed-precision specifiers.
+/// </para>
+/// <para>
+/// The compact/scientific switch of "G" is deliberately not implemented: "G" without a precision is
+/// the round-trip form (identical to the parameterless <see cref="Number.ToString()"/>), and "G" with
+/// a precision rounds to that many significant digits but always stays in positional notation.
+/// </para>
+/// </remarks>
 internal static class Formatting
 {
-    // "B" or "b" 	Binary 	                    255 ("b16") -> 0000000011111111
-    // "X" or "x" 	Hexadecimal                 255 ("x4") -> 00ff
-    // "D" or "d" 	Decimal                     -1234 ("D6") -> -001234                         
-    private static readonly List<char> _integralOnlyFormats = ['B', 'b', 'X', 'x', 'D', 'd'];
-    private static bool IsIntegralFormat(char fmt) => _integralOnlyFormats.Contains(fmt);
+    /// <summary>Sentinel for "no precision specifier was supplied".</summary>
+    private const int NoPrecision = -1;
 
-    // this is the guy that matters for IFormattable:
+    private const int MaxPrecisionDigits = 9;
+
+    // Standard negative/positive layout tables, indexed by the matching NumberFormatInfo pattern
+    // property. Tokens: n = the formatted digits, $ / % = the currency/percent symbol,
+    // - = NegativeSign, everything else is literal.
+    private static readonly string[] _numberNegativePatterns =
+        ["(n)", "-n", "- n", "n-", "n -"];
+
+    private static readonly string[] _currencyPositivePatterns =
+        ["$n", "n$", "$ n", "n $"];
+
+    private static readonly string[] _currencyNegativePatterns =
+    [
+        "($n)", "-$n", "$-n", "$n-", "(n$)", "-n$", "n-$", "n$-",
+        "-n $", "-$ n", "n $-", "$ n-", "$ -n", "n- $", "($ n)", "(n $)", "$- n",
+    ];
+
+    private static readonly string[] _percentPositivePatterns =
+        ["n %", "n%", "%n", "% n"];
+
+    private static readonly string[] _percentNegativePatterns =
+    [
+        "-n %", "-n%", "-%n", "%-n", "%n-", "n-%", "n%-", "-% n", "n %-", "% n-", "% -n", "n- %",
+    ];
+
+    /// <summary>Formats <paramref name="value"/> using an <see cref="IFormattable"/>-style format string.</summary>
     internal static string FormatNumber(Number value, string? format, NumberFormatInfo info)
-        => FormatNumber(targetSpan: false, value, format, format, info, default, out _, out _)!;
-
-    // TODO: IMPLEMENT
-    private static unsafe string? FormatNumber(
-        bool targetSpan, Number value, string? formatString, ReadOnlySpan<char> formatSpan,
-        NumberFormatInfo info, Span<char> destination, out int charsWritten, out bool spanSuccess)
     {
-        Debug.Assert(formatString == null || formatString.Length == formatSpan.Length);
-
-        var fmt = ParseFormatSpecifier(formatSpan, out var digits);
-
-        var isInteger = Number.IsInteger(value);
-        var isIntegerFormat = IsIntegralFormat(fmt);
-        if (isIntegerFormat && !isInteger)
-            throw new FormatException($"Format {fmt} requires an integer, but the given number is not an integer");
-
-        // format to hex
-        if (fmt is 'x' or 'X')
-        {
-            return ToHex(targetSpan, value, fmt, digits, info, destination, out charsWritten, out spanSuccess);
-        }
-
-        // format to binary
-        if (fmt is 'b' or 'B')
-        {
-            return ToBinary(targetSpan, value, fmt, digits, info, destination, out charsWritten, out spanSuccess);
-        }
-
-        // if it's an int32, then the most compact form is Decimal.
-        
-        // TODO: what the actual fuck, bro?
-        const bool isInt32 = false;
-        if (isInt32)
-#pragma warning disable CS0162 // Unreachable code detected
-        {
-            if (fmt == 'g' || fmt == 'G' || fmt == 'r' || fmt == 'R')
-            {
-                formatSpan = formatString = digits > 0 ? $"D{digits}" : "D";
-            }
-
-            if (targetSpan)
-            {
-                spanSuccess = value.Sign.TryFormat(destination, out charsWritten, formatSpan, info);
-                return null;
-            }
-            else
-            {
-                Debug.Assert(formatString != null);
-                charsWritten = 0;
-                spanSuccess = false;
-                return value.Sign.ToString(formatString, info);
-            }
-        }
-#pragma warning restore CS0162 // Unreachable code detected
-
-        charsWritten = 0;
-        spanSuccess = true;
-        return string.Empty;
+        char specifier = ParseFormatSpecifier(format.AsSpan(), out int precision);
+        return Format(value, specifier, precision, info);
     }
 
-
-    internal static char ParseFormatSpecifier(ReadOnlySpan<char> format, out int digits)
-    {
-        digits = 0;
-        return 'G';
-    }
-
-
-    private static string? ToHex(bool targetSpan, Number value, char format, int digits,
-        NumberFormatInfo info, Span<char> destination, out int charsWritten, out bool spanSuccess)
-    {
-        // "X" or "x" 	Hexadecimal                 255 ("x4") -> 00ff
-        //      A hexadecimal string.       (by Integral types only)
-        charsWritten = 0;
-        spanSuccess = true;
-        return null;
-    }
-
-    private static string? ToBinary(bool targetSpan, Number value, char format, int digits,
-        NumberFormatInfo info, Span<char> destination, out int charsWritten, out bool spanSuccess)
-    {
-        // "B" or "b" 	Binary 	                    255 ("b16") -> 0000000011111111
-        //      A binary string.           (integral types only)
-        charsWritten = 0;
-        spanSuccess = true;
-        return null;
-    }
-
-
-    private const int _charStackBufferSize = 2000;
-
-    // TODO: Are these helpful?  or UN-helpful?
-    //  The whole purpose of Number is to have arbitrary length and precision.
-    public static int NumberBufferLength => 1000;
-    public static int MaxPrecisionCustomFormat => 1000;
-
+    /// <summary>Formats into <paramref name="destination"/>; returns <see langword="false"/> if it does not fit.</summary>
     internal static bool TryFormatNumber(Number value, ReadOnlySpan<char> format, NumberFormatInfo info,
         Span<char> destination, out int charsWritten)
     {
-        FormatNumber(targetSpan: true, value, null, format, info, destination, out charsWritten, out bool spanSuccess);
-        return spanSuccess;
+        char specifier = ParseFormatSpecifier(format, out int precision);
+        string result = Format(value, specifier, precision, info);
+
+        if (result.Length > destination.Length)
+        {
+            charsWritten = 0;
+            return false;
+        }
+
+        result.CopyTo(destination);
+        charsWritten = result.Length;
+        return true;
     }
 
-
-    // var vlb = new ValueListBuilder<char>(stackalloc char[CharStackBufferSize]);
-    // var result = FormatNumber(ref vlb, value, format, info) ?? vlb.AsSpan().ToString();
-    // vlb.Dispose();
-    // return result;
-
-
-    // TODO: IMPLEMENT
-    private static unsafe string? FormatNumber(ref ValueListBuilder<char> vlb, Number value, ReadOnlySpan<char> format,
-        NumberFormatInfo info)
+    /// <summary>
+    /// Splits a standard numeric format string into its specifier letter and optional precision.
+    /// An empty string maps to the round-trip <c>'G'</c> with <see cref="NoPrecision"/>. Anything that
+    /// is not <c>letter[digits]</c> is a custom format string, which this type does not support.
+    /// </summary>
+    internal static char ParseFormatSpecifier(ReadOnlySpan<char> format, out int digits)
     {
-        // TODO: IMPLEMENT
-        // char fmt = ParseFormatSpecifier(format, out int precision);
-        // byte* pDigits = stackalloc byte[NumberBufferLength];
-        //
-        // if (fmt == '\0')
-        // {
-        //     precision = Number.MaxPrecisionCustomFormat;
-        // }
-        //
-        // // NumberBuffer number = new NumberBuffer(NumberBufferKind.FloatingPoint, pDigits, TNumber.NumberBufferLength);
-        // number.IsNegative = TNumber.IsNegative(value);
+        digits = NoPrecision;
 
+        if (format.IsEmpty)
+            return 'G';
 
-        return string.Empty;
+        char specifier = format[0];
+        if (!char.IsAsciiLetter(specifier))
+            throw new FormatException($"'{format.ToString()}' is not a supported numeric format string.");
 
-        // https://learn.microsoft.com/en-us/dotnet/standard/base-types/standard-numeric-format-strings
-        // format to currency ('c' or 'C')
-        // format to Exponential ('e' or 'E') 
-        // format to Fixed-point ('f' or 'F')
-        // format to General ('g' or 'G')
-        // format to Number ('n' or 'N')
-        // format to Percent ('p' or 'P')
-        // otherwise, throw a FormatException at runtime    
-        // other formats are integral-type ONLY
+        if (format.Length == 1)
+            return specifier;
+
+        ReadOnlySpan<char> precisionText = format[1..];
+        if (precisionText.Length > MaxPrecisionDigits)
+            throw new FormatException($"'{format.ToString()}' is not a supported numeric format string.");
+
+        int value = 0;
+        foreach (char c in precisionText)
+        {
+            if (!char.IsAsciiDigit(c))
+                throw new FormatException($"'{format.ToString()}' is not a supported numeric format string.");
+
+            value = value * 10 + (c - '0');
+        }
+
+        digits = value;
+        return specifier;
     }
-    
-    
-    
-    
-    
+
+    private static string Format(Number value, char specifier, int precision, NumberFormatInfo info)
+    {
+        switch (char.ToUpperInvariant(specifier))
+        {
+            case 'R':
+                return RoundTrip(value, info);
+
+            case 'G':
+                return precision > 0
+                    ? SignificantDigits(value, precision, info)
+                    : RoundTrip(value, info);
+
+            case 'F':
+                return FixedPoint(value, precision < 0 ? info.NumberDecimalDigits : precision, info,
+                    groupSizes: null, groupSeparator: "", info.NumberDecimalSeparator,
+                    _numberNegativePatterns[1], symbol: "");
+
+            case 'N':
+                return FixedPoint(value, precision < 0 ? info.NumberDecimalDigits : precision, info,
+                    info.NumberGroupSizes, info.NumberGroupSeparator, info.NumberDecimalSeparator,
+                    Pattern(_numberNegativePatterns, info.NumberNegativePattern), symbol: "");
+
+            case 'C':
+                return FixedPoint(value, precision < 0 ? info.CurrencyDecimalDigits : precision, info,
+                    info.CurrencyGroupSizes, info.CurrencyGroupSeparator, info.CurrencyDecimalSeparator,
+                    Pattern(_currencyNegativePatterns, info.CurrencyNegativePattern),
+                    info.CurrencySymbol, Pattern(_currencyPositivePatterns, info.CurrencyPositivePattern));
+
+            case 'P':
+                return FixedPoint(value * OneHundred, precision < 0 ? info.PercentDecimalDigits : precision, info,
+                    info.PercentGroupSizes, info.PercentGroupSeparator, info.PercentDecimalSeparator,
+                    Pattern(_percentNegativePatterns, info.PercentNegativePattern),
+                    info.PercentSymbol, Pattern(_percentPositivePatterns, info.PercentPositivePattern));
+
+            case 'E':
+                return Exponential(value, precision < 0 ? 6 : precision, char.IsUpper(specifier) ? 'E' : 'e', info);
+
+            case 'D':
+            case 'X':
+            case 'B':
+                return Integral(value, specifier, precision, info);
+
+            default:
+                throw new FormatException($"The '{specifier}' format specifier is not supported for {nameof(Number)}.");
+        }
+    }
+
+    private static readonly Number OneHundred = new(100L);
+
+    /// <summary>The round-trip form: every significant digit, no rounding. Mirrors <see cref="Number.ToString()"/>.</summary>
+    private static string RoundTrip(Number value, NumberFormatInfo info)
+    {
+        Decompose(value, out bool isNegative, out string integerDigits, out string fractionDigits);
+        string body = fractionDigits.Length > 0
+            ? integerDigits + info.NumberDecimalSeparator + fractionDigits
+            : integerDigits;
+        return isNegative ? info.NegativeSign + body : body;
+    }
+
+    private static string SignificantDigits(Number value, int significantDigits, NumberFormatInfo info)
+    {
+        Decompose(value, out bool isNegative, out string integerDigits, out string fractionDigits);
+
+        if (IsZero(integerDigits, fractionDigits))
+            return "0";
+
+        int exponent = integerDigits != "0"
+            ? integerDigits.Length - 1
+            : -(LeadingZeroCount(fractionDigits) + 1);
+
+        RoundToScale(ref integerDigits, ref fractionDigits, significantDigits - 1 - exponent);
+        fractionDigits = fractionDigits.TrimEnd('0');
+
+        bool roundedToZero = IsZero(integerDigits, fractionDigits);
+        string body = fractionDigits.Length > 0
+            ? integerDigits + info.NumberDecimalSeparator + fractionDigits
+            : integerDigits;
+        return isNegative && !roundedToZero ? info.NegativeSign + body : body;
+    }
+
+    private static string FixedPoint(Number value, int decimalPlaces, NumberFormatInfo info,
+        int[]? groupSizes, string groupSeparator, string decimalSeparator,
+        string negativePattern, string symbol, string? positivePattern = null)
+    {
+        Decompose(value, out bool isNegative, out string integerDigits, out string fractionDigits);
+        RoundToScale(ref integerDigits, ref fractionDigits, decimalPlaces);
+
+        bool roundedToZero = IsZero(integerDigits, fractionDigits);
+
+        if (groupSizes is { Length: > 0 } && groupSeparator.Length > 0)
+            integerDigits = ApplyGrouping(integerDigits, groupSizes, groupSeparator);
+
+        string digits = decimalPlaces > 0
+            ? integerDigits + decimalSeparator + fractionDigits
+            : integerDigits;
+
+        string pattern = isNegative && !roundedToZero ? negativePattern : positivePattern ?? "n";
+        return ApplyPattern(pattern, digits, symbol, info.NegativeSign);
+    }
+
+    private static string Exponential(Number value, int decimalPlaces, char exponentChar, NumberFormatInfo info)
+    {
+        Decompose(value, out bool isNegative, out string integerDigits, out string fractionDigits);
+
+        string allDigits = integerDigits + fractionDigits;
+        int pointIndex = integerDigits.Length;
+        int firstSignificant = -1;
+        for (int i = 0; i < allDigits.Length; i++)
+        {
+            if (allDigits[i] != '0')
+            {
+                firstSignificant = i;
+                break;
+            }
+        }
+
+        if (firstSignificant < 0)
+        {
+            string zeroMantissa = decimalPlaces > 0
+                ? "0" + info.NumberDecimalSeparator + new string('0', decimalPlaces)
+                : "0";
+            return zeroMantissa + exponentChar + info.PositiveSign + "000";
+        }
+
+        int exponent = pointIndex - firstSignificant - 1;
+        string significant = allDigits[firstSignificant..];
+        int keep = decimalPlaces + 1;
+
+        char[] mantissa;
+        if (significant.Length <= keep)
+        {
+            mantissa = significant.PadRight(keep, '0').ToCharArray();
+        }
+        else
+        {
+            bool roundUp = significant[keep] >= '5';
+            mantissa = significant[..keep].ToCharArray();
+            if (roundUp)
+            {
+                int idx = keep - 1;
+                while (idx >= 0 && mantissa[idx] == '9')
+                {
+                    mantissa[idx] = '0';
+                    idx--;
+                }
+
+                if (idx < 0)
+                {
+                    mantissa = ('1' + new string(mantissa, 0, keep - 1)).ToCharArray();
+                    exponent++;
+                }
+                else
+                {
+                    mantissa[idx]++;
+                }
+            }
+        }
+
+        var builder = new StringBuilder();
+        builder.Append(mantissa[0]);
+        if (decimalPlaces > 0)
+        {
+            builder.Append(info.NumberDecimalSeparator);
+            builder.Append(mantissa, 1, decimalPlaces);
+        }
+
+        builder.Append(exponentChar);
+        builder.Append(exponent < 0 ? info.NegativeSign : info.PositiveSign);
+        builder.Append(Math.Abs(exponent).ToString(CultureInfo.InvariantCulture).PadLeft(3, '0'));
+
+        string body = builder.ToString();
+        return isNegative ? info.NegativeSign + body : body;
+    }
+
+    private static string Integral(Number value, char specifier, int precision, NumberFormatInfo info)
+    {
+        if (value.DecimalOffset != 0)
+            throw new FormatException(
+                $"The '{specifier}' format specifier requires an integral value, but {nameof(Number)} has a fractional part.");
+
+        BigInteger signed = value.IsNegative ? -value.RawValue : value.RawValue;
+        string bigIntegerFormat = precision < 0
+            ? specifier.ToString()
+            : specifier + precision.ToString(CultureInfo.InvariantCulture);
+        return signed.ToString(bigIntegerFormat, info);
+    }
+
+    /// <summary>
+    /// Breaks a value into its sign and its magnitude's integer / fraction digit strings.
+    /// The integer string never carries leading zeros beyond a single <c>"0"</c>; the fraction
+    /// string has no trailing zeros (the significand is already normalised that way).
+    /// </summary>
+    private static void Decompose(Number value, out bool isNegative, out string integerDigits, out string fractionDigits)
+    {
+        isNegative = value.IsNegative;
+        string magnitude = value.RawValue.ToString(CultureInfo.InvariantCulture);
+        int offset = value.DecimalOffset;
+
+        if (offset <= 0)
+        {
+            integerDigits = magnitude;
+            fractionDigits = "";
+        }
+        else if (offset >= magnitude.Length)
+        {
+            integerDigits = "0";
+            fractionDigits = new string('0', offset - magnitude.Length) + magnitude;
+        }
+        else
+        {
+            integerDigits = magnitude[..(magnitude.Length - offset)];
+            fractionDigits = magnitude[(magnitude.Length - offset)..];
+        }
+    }
+
+    /// <summary>
+    /// Rounds the magnitude in <paramref name="integerDigits"/> / <paramref name="fractionDigits"/> so
+    /// that it keeps exactly <paramref name="scale"/> fractional digits, half-away-from-zero.
+    /// <paramref name="scale"/> may be negative, meaning digits are dropped from the integer part.
+    /// </summary>
+    private static void RoundToScale(ref string integerDigits, ref string fractionDigits, int scale)
+    {
+        string combined = integerDigits + fractionDigits;
+        int pointIndex = integerDigits.Length;
+        int keepLength = pointIndex + scale;
+
+        if (keepLength >= combined.Length)
+        {
+            fractionDigits = scale > 0 ? fractionDigits.PadRight(scale, '0') : "";
+            NormalizeInteger(ref integerDigits);
+            return;
+        }
+
+        if (keepLength < 1)
+        {
+            int pad = 1 - keepLength;
+            combined = new string('0', pad) + combined;
+            pointIndex += pad;
+            keepLength = 1;
+        }
+
+        bool roundUp = combined[keepLength] >= '5';
+        char[] kept = combined[..keepLength].ToCharArray();
+
+        if (roundUp)
+        {
+            int idx = keepLength - 1;
+            while (idx >= 0 && kept[idx] == '9')
+            {
+                kept[idx] = '0';
+                idx--;
+            }
+
+            if (idx < 0)
+            {
+                kept = ('1' + new string(kept)).ToCharArray();
+                pointIndex++;
+            }
+            else
+            {
+                kept[idx]++;
+            }
+        }
+
+        string rounded = new(kept);
+        if (pointIndex >= rounded.Length)
+        {
+            integerDigits = rounded + new string('0', pointIndex - rounded.Length);
+            fractionDigits = "";
+        }
+        else
+        {
+            integerDigits = rounded[..pointIndex];
+            fractionDigits = rounded[pointIndex..];
+        }
+
+        if (scale > 0)
+        {
+            fractionDigits = fractionDigits.Length >= scale
+                ? fractionDigits[..scale]
+                : fractionDigits.PadRight(scale, '0');
+        }
+        else
+        {
+            fractionDigits = "";
+        }
+
+        NormalizeInteger(ref integerDigits);
+    }
+
+    private static void NormalizeInteger(ref string integerDigits)
+    {
+        integerDigits = integerDigits.TrimStart('0');
+        if (integerDigits.Length == 0)
+            integerDigits = "0";
+    }
+
+    private static string ApplyGrouping(string digits, int[] groupSizes, string separator)
+    {
+        var groups = new List<string>();
+        int position = digits.Length;
+        int sizeIndex = 0;
+
+        while (position > 0)
+        {
+            int size = groupSizes[sizeIndex];
+            if (size <= 0)
+            {
+                groups.Insert(0, digits[..position]);
+                break;
+            }
+
+            int start = Math.Max(0, position - size);
+            groups.Insert(0, digits[start..position]);
+            position = start;
+
+            if (sizeIndex < groupSizes.Length - 1)
+                sizeIndex++;
+        }
+
+        return string.Join(separator, groups);
+    }
+
+    private static string ApplyPattern(string pattern, string digits, string symbol, string negativeSign)
+    {
+        var builder = new StringBuilder(pattern.Length + digits.Length + symbol.Length);
+        foreach (char token in pattern)
+        {
+            switch (token)
+            {
+                case 'n':
+                    builder.Append(digits);
+                    break;
+                case '$':
+                case '%':
+                    builder.Append(symbol);
+                    break;
+                case '-':
+                    builder.Append(negativeSign);
+                    break;
+                default:
+                    builder.Append(token);
+                    break;
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    private static string Pattern(string[] patterns, int index)
+        => (uint)index < (uint)patterns.Length ? patterns[index] : patterns[0];
+
+    private static bool IsZero(string integerDigits, string fractionDigits)
+    {
+        foreach (char c in integerDigits)
+        {
+            if (c != '0')
+                return false;
+        }
+
+        foreach (char c in fractionDigits)
+        {
+            if (c != '0')
+                return false;
+        }
+
+        return true;
+    }
+
+    private static int LeadingZeroCount(string digits)
+    {
+        int count = 0;
+        while (count < digits.Length && digits[count] == '0')
+            count++;
+        return count;
+    }
 }
