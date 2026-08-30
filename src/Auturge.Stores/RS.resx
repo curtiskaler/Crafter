@@ -1,9 +1,7 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-
+<?xml version="1.0" encoding="utf-8"?>
 <root>
     <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
         <xsd:element name="root" msdata:IsDataSet="true">
-            
         </xsd:element>
     </xsd:schema>
     <resheader name="resmimetype">
@@ -18,7 +16,16 @@
     <resheader name="writer">
         <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
     </resheader>
-    <data name="EX_ConverterNotFound" xml:space="preserve">
-        <value>Converter not found for [{0} → {1}]</value>
+    <data name="DuplicateId" xml:space="preserve">
+        <value>An item with the ID '{0}' already exists in the store.</value>
+    </data>
+    <data name="NullEntityInBatch" xml:space="preserve">
+        <value>The collection contains a null entity entry.</value>
+    </data>
+    <data name="KeyNotFound" xml:space="preserve">
+        <value>Cannot update entity: ID '{0}' was not found in the store.</value>
+    </data>
+    <data name="ConcurrencyViolation" xml:space="preserve">
+        <value>Concurrency violation: the entity with ID '{0}' was modified by another process.</value>
     </data>
 </root>

@@ -1,133 +1,121 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 
 namespace Auturge.Stores;
 
 /// <summary> Defines a generic, asynchronous repository contract for a unified data store. </summary>
 /// <remarks>
-/// This abstraction decouples business services from infrastructure choices. It handles standard 
-/// CRUD operations, predicate-driven queries, and transactional persistence. It supports both 
-/// relational databases (via expressions) and high-performance in-memory mock testing providers.
+/// This abstraction decouples business services from infrastructure choices. It handles standard
+/// CRUD operations, predicate-driven queries, and transactional persistence, and fronts both
+/// relational databases and in-memory providers. Implement this version directly for
+/// composite-key or join tables.
 /// </remarks>
-/// <typeparam name="TId">The contravariant type of the primary key identifier. Must be non-nullable.</typeparam>
-/// <typeparam name="TEntity">The type of the entity managed by the store. Must be a reference class type.</typeparam>
-public interface IStore<in TId, TEntity> 
-    where TId : IEquatable<TId> 
-    where TEntity : class, IStoredEntity<TId>
+/// <typeparam name="TEntity">The reference type of the entity managed by the store.</typeparam>
+public interface IStore<TEntity> where TEntity : class, IStoredEntity
 {
-    /// <summary>
-    /// Asynchronously inserts a new entity into the data store.
-    /// </summary>
-    /// <param name="entity">The entity instance to add to the store.</param>
-    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains the persisted entity as tracked by the store.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when the provided entity is null.</exception>
-    /// <exception cref="OperationCanceledException">Thrown if the operation is canceled via the cancellation token.</exception>
-    Task<TEntity> Add(TEntity entity, CancellationToken cancellationToken = default);
-    
-    /// <summary>
-    /// Asynchronously inserts a collection of new entities into the in-memory data store.
-    /// </summary>
-    /// <param name="entities">The collection of entities to add to the store.</param>
-    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains the collection of successfully persisted entities.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when the provided collection or any entity within it is null.</exception>
-    /// <exception cref="ArgumentException">Thrown if an entity with a duplicate ID is detected or already exists.</exception>
-    /// <exception cref="OperationCanceledException">Thrown if the operation is canceled via the cancellation token.</exception>
-    Task<IEnumerable<TEntity>> AddRange(IEnumerable<TEntity> entities, CancellationToken cancellationToken = default);
+    /// <summary> Returns a composable query over the store's non-deleted entities. </summary>
+    IQueryable<TEntity> Query();
 
-    /// <summary>
-    /// Asynchronously determines whether the data store contains an entity with the specified unique identifier.
-    /// </summary>
-    /// <param name="id">The unique identifier to locate in the data store.</param>
+    /// <summary> Asynchronously inserts a new entity into the store. </summary>
+    /// <param name="entity">The entity instance to add.</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains true if the entity exists; otherwise, false.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when the provided ID is null.</exception>
-    /// <exception cref="OperationCanceledException">Thrown if the operation is canceled via the cancellation token.</exception>
-    Task<bool> ContainsKey(TId id, CancellationToken cancellationToken = default);
+    /// <returns>
+    /// The added entity with store-assigned fields populated (concurrency token, audit timestamps).
+    /// Stores may track an independent copy; mutations made after this call are not persisted until <see cref="UpdateAsync"/>.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">The provided entity is null.</exception>
+    /// <exception cref="ArgumentException">An entity with the same identifier already exists.</exception>
+    /// <exception cref="OperationCanceledException">The operation was canceled via the cancellation token.</exception>
+    Task<TEntity> AddAsync(TEntity entity, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Asynchronously compiles the expression predicate and scans the in-memory store for the first matching entity.
-    /// </summary>
-    /// <param name="predicate">An expression tree representing the conditional check logic.</param>
+    /// <summary> Asynchronously inserts a collection of new entities as a single batch. </summary>
+    /// <param name="entities">The entities to add.</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains the matching entity, or null if no match is found.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when the provided predicate expression is null.</exception>
-    /// <exception cref="OperationCanceledException">Thrown if the operation is canceled via the cancellation token.</exception>
-    Task<TEntity?> FindBy(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default);
-    
-    /// <summary>
-    /// Asynchronously filters a collection of entities based on a predicate logic.
-    /// </summary>
+    /// <returns>The added entities with store-assigned fields populated.</returns>
+    /// <exception cref="ArgumentNullException">The collection is null, or contains a null entry.</exception>
+    /// <exception cref="ArgumentException">An entity with a duplicate identifier was detected; the batch is rolled back.</exception>
+    /// <exception cref="OperationCanceledException">The operation was canceled via the cancellation token.</exception>
+    Task<IEnumerable<TEntity>> AddRangeAsync(IEnumerable<TEntity> entities, CancellationToken cancellationToken = default);
+
+    /// <summary> Asynchronously deletes an entity. Soft-deletable entities are flagged rather than removed. </summary>
+    /// <param name="entity">The entity to delete.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns><see langword="true"/> if an entity was deleted; <see langword="false"/> if it was not present or was already deleted.</returns>
+    /// <exception cref="ArgumentNullException">The provided entity is null.</exception>
+    /// <exception cref="OperationCanceledException">The operation was canceled via the cancellation token.</exception>
+    Task<bool> DeleteAsync(TEntity entity, CancellationToken cancellationToken = default);
+
+    /// <summary> Asynchronously returns every non-deleted entity matching a predicate. </summary>
     /// <param name="predicate">A function to test each entity for a condition.</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains all matching elements.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when the provided predicate is null.</exception>
-    /// <exception cref="OperationCanceledException">Thrown if the operation is canceled via the cancellation token.</exception>
-    Task<IEnumerable<TEntity>> FindAllBy(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default);
-    
-    /// <summary>
-    /// Asynchronously retrieves an entity from the in-memory data store using its unique identifier.
-    /// </summary>
-    /// <param name="id">The unique identifier of the entity to retrieve.</param>
-    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains the matching entity, or null if no match is found.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when the provided ID is null.</exception>
-    /// <exception cref="OperationCanceledException">Thrown if the operation is canceled via the cancellation token.</exception>
-    Task<TEntity?> GetById(TId id, CancellationToken cancellationToken = default);
-    
-    /// <summary>
-    /// Asynchronously retrieves all entities currently present in the in-memory data store.
-    /// </summary>
-    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains an enumerable collection of all entities.</returns>
-    /// <exception cref="OperationCanceledException">Thrown if the operation is canceled via the cancellation token.</exception>
-    Task<IEnumerable<TEntity>> GetAll(CancellationToken cancellationToken = default);
-    
-    /// <summary>
-    /// Asynchronously updates an existing entity within the in-memory data store.
-    /// </summary>
-    /// <param name="entity">The entity instance containing updated values.</param>
-    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-    /// <returns>A task that represents the asynchronous operation.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when the provided entity is null.</exception>
-    /// <exception cref="KeyNotFoundException">Thrown if the entity does not exist in the store.</exception>
-    /// <exception cref="OperationCanceledException">Thrown if the operation is canceled via the cancellation token.</exception>
-    Task<TEntity> Update(TEntity entity, CancellationToken cancellationToken = default);
+    /// <returns>All matching entities.</returns>
+    /// <exception cref="ArgumentNullException">The provided predicate is null.</exception>
+    /// <exception cref="OperationCanceledException">The operation was canceled via the cancellation token.</exception>
+    Task<IEnumerable<TEntity>> FindAllByAsync(Expression<Func<TEntity, bool>> predicate,
+        CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Asynchronously removes an entity from the in-memory data store using its unique identifier.
-    /// </summary>
-    /// <param name="id">The unique identifier of the entity to delete.</param>
+    /// <summary> Asynchronously returns the first non-deleted entity matching a predicate, or <see langword="null"/>. </summary>
+    /// <param name="predicate">A function to test each entity for a condition.</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-    /// <returns>A task that represents the asynchronous operation.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when the provided ID is null.</exception>
-    /// <exception cref="KeyNotFoundException">Thrown if no entity matches the provided ID.</exception>
-    /// <exception cref="OperationCanceledException">Thrown if the operation is canceled via the cancellation token.</exception>
-    Task<bool> Delete(TId id, CancellationToken cancellationToken = default);
-    
-    /// <summary>
-    /// Asynchronously removes a specific entity instance from the in-memory data store.
-    /// </summary>
-    /// <param name="entity">The entity instance to remove from the store.</param>
-    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-    /// <returns>A task that represents the asynchronous operation.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when the provided entity is null.</exception>
-    /// <exception cref="KeyNotFoundException">Thrown if the entity does not exist in the store.</exception>
-    /// <exception cref="OperationCanceledException">Thrown if the operation is canceled via the cancellation token.</exception>
-    Task<bool> Delete(TEntity entity, CancellationToken cancellationToken = default);
+    /// <returns>The matching entity, or <see langword="null"/> if none match.</returns>
+    /// <exception cref="ArgumentNullException">The provided predicate is null.</exception>
+    /// <exception cref="OperationCanceledException">The operation was canceled via the cancellation token.</exception>
+    Task<TEntity?> FindByAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default);
 
-    /// <summary> Flushes staged mutations down to the persistent backend. </summary>
+    /// <summary> Asynchronously retrieves every non-deleted entity in the store. </summary>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-    /// <returns>A task representing the operation. The result contains the number of state mutations applied.</returns>
-    /// <exception cref="OperationCanceledException">Thrown if the operation is canceled via the cancellation token.</exception>
-    Task<int> SaveChanges(CancellationToken cancellationToken = default);
+    /// <returns>All non-deleted entities.</returns>
+    /// <exception cref="OperationCanceledException">The operation was canceled via the cancellation token.</exception>
+    Task<IEnumerable<TEntity>> GetAllAsync(CancellationToken cancellationToken = default);
+
+    /// <summary> Flushes staged mutations to the backing store. </summary>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>The number of state entries written.</returns>
+    /// <exception cref="OperationCanceledException">The operation was canceled via the cancellation token.</exception>
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary> Asynchronously updates an existing entity. </summary>
+    /// <param name="entity">The entity instance carrying the updated values.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>The updated entity with a refreshed concurrency token and audit timestamp.</returns>
+    /// <exception cref="ArgumentNullException">The provided entity is null.</exception>
+    /// <exception cref="KeyNotFoundException">No entity with a matching identifier exists.</exception>
+    /// <exception cref="InvalidOperationException">The entity's concurrency token is stale (it was modified by another writer).</exception>
+    /// <exception cref="OperationCanceledException">The operation was canceled via the cancellation token.</exception>
+    Task<TEntity> UpdateAsync(TEntity entity, CancellationToken cancellationToken = default);
 }
 
-/// <summary> Defines a generic, asynchronous repository contract for a unified data store. </summary>
+/// <summary> Defines a generic, asynchronous repository contract for a single-key entity table. </summary>
 /// <remarks>
-/// This abstraction decouples business services from infrastructure choices. It handles standard 
-/// CRUD operations, predicate-driven queries, and transactional persistence. It supports both 
-/// relational databases (via expressions) and high-performance in-memory mock testing providers.
+/// Extends <see cref="IStore{TEntity}"/> with identifier-addressed operations. Implement this version
+/// directly for entities keyed by a single property.
 /// </remarks>
-/// <typeparam name="TEntity">The type of the entity managed by the store. Must be a reference class type.</typeparam>
-public interface IStore<TEntity> : IStore<long, TEntity> where TEntity : class, IStoredEntity<long>;
+/// <typeparam name="TEntity">The reference type of the entity managed by the store.</typeparam>
+/// <typeparam name="TKey">The contravariant, non-nullable type of the primary key.</typeparam>
+public interface IStore<TEntity, in TKey> : IStore<TEntity>
+    where TEntity : class, IStoredEntity, IIdentifiable<TKey>
+    where TKey : notnull
+{
+    /// <summary> Asynchronously determines whether a non-deleted entity with the given identifier exists. </summary>
+    /// <param name="id">The identifier to locate.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns><see langword="true"/> if a non-deleted entity exists; otherwise <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentNullException">The provided identifier is null.</exception>
+    /// <exception cref="OperationCanceledException">The operation was canceled via the cancellation token.</exception>
+    Task<bool> ContainsKeyAsync(TKey id, CancellationToken cancellationToken = default);
+
+    /// <summary> Asynchronously deletes the entity with the given identifier. Soft-deletable entities are flagged rather than removed. </summary>
+    /// <param name="id">The identifier of the entity to delete.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns><see langword="true"/> if an entity was deleted; <see langword="false"/> if it was not present or was already deleted.</returns>
+    /// <exception cref="ArgumentNullException">The provided identifier is null.</exception>
+    /// <exception cref="OperationCanceledException">The operation was canceled via the cancellation token.</exception>
+    Task<bool> DeleteAsync(TKey id, CancellationToken cancellationToken = default);
+
+    /// <summary> Asynchronously retrieves the non-deleted entity with the given identifier, or <see langword="null"/>. </summary>
+    /// <param name="id">The identifier of the entity to retrieve.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>The matching entity, or <see langword="null"/> if none exists or it is soft-deleted.</returns>
+    /// <exception cref="ArgumentNullException">The provided identifier is null.</exception>
+    /// <exception cref="OperationCanceledException">The operation was canceled via the cancellation token.</exception>
+    Task<TEntity?> GetByIdAsync(TKey id, CancellationToken cancellationToken = default);
+}
