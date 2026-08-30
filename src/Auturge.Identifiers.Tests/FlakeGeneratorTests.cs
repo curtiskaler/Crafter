@@ -16,6 +16,9 @@ public class FlakeGeneratorTests
         public void Rewind(long millis) => _millis -= millis;
     }
 
+    private static long Millis(int year)
+        => new DateTimeOffset(new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+
     [Test]
     public void GetNextId_Should_ReturnIncreasingValues_When_CalledRepeatedly()
     {
@@ -106,5 +109,34 @@ public class FlakeGeneratorTests
         Assert.That(first & FlakeConfigs.Twitter.MaxSequence, Is.EqualTo(0));
         Assert.That(second & FlakeConfigs.Twitter.MaxSequence, Is.EqualTo(1));
         Assert.That(third & FlakeConfigs.Twitter.MaxSequence, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void GetNextId_Should_Throw_When_ClockIsBeforeTheConfiguredEpoch()
+    {
+        var config = new FlakeConfig(typeof(long), Millis(2025), 12, 5, 5);
+        var generator = new FlakeGenerator(config, 0, 0, new MutableClock(Millis(2020)));
+
+        Assert.That(() => generator.GetNextId(), Throws.InstanceOf<InvalidOperationException>());
+    }
+
+    [Test]
+    public void GetNextId_Should_Throw_When_ClockIsPastTheRolloverDate()
+    {
+        var config = new FlakeConfig(typeof(long), 0L, 12, 5, 5); // 41 timestamp bits, rolls over ~2039
+        var generator = new FlakeGenerator(config, 0, 0, new MutableClock(Millis(2100)));
+
+        Assert.That(() => generator.GetNextId(), Throws.InstanceOf<InvalidOperationException>());
+    }
+
+    [Test]
+    public void GetNextId_Should_Succeed_When_ClockIsInsideTheConfiguredWindow()
+    {
+        var config = new FlakeConfig(typeof(long), Millis(2020), 12, 5, 5);
+        var generator = new FlakeGenerator(config, 0, 0, new MutableClock(Millis(2024)));
+
+        long id = generator.GetNextId();
+
+        Assert.That(id, Is.Positive);
     }
 }
