@@ -11,6 +11,9 @@ public class URNTests
         public Subject(string nid, string nss) : base(nid, nss)
         {
         }
+
+        public static bool TryParts(string? s, out string? nid, out string? nss)
+            => TryParseParts(s, out nid, out nss);
     }
 
     [Test]
@@ -133,5 +136,68 @@ public class URNTests
         };
 
         Assert.That(set, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void Ctor_Should_Throw_When_NssContainsWhitespace()
+    {
+        Assert.That(() => new Subject("recipe", "choc chip"), Throws.InstanceOf<FormatException>());
+    }
+
+    [Test]
+    public void Ctor_Should_Throw_When_NssContainsAFragmentDelimiter()
+    {
+        Assert.That(() => new Subject("recipe", "cookie#crumb"), Throws.InstanceOf<FormatException>());
+    }
+
+    [Test]
+    public void Ctor_Should_Throw_When_NssHasIncompletePercentEncoding()
+    {
+        Assert.That(() => new Subject("urn:recipe:a%2"), Throws.InstanceOf<FormatException>());
+    }
+
+    [Test]
+    public void Ctor_Should_Accept_PercentEncodedNss()
+    {
+        var urn = new Subject("urn:recipe:choc%20chip");
+
+        Assert.That(urn.NSS, Is.EqualTo("choc%20chip"));
+    }
+
+    [Test]
+    public void Ctor_Should_Throw_ArgumentNullException_When_APartIsNull()
+    {
+        Assert.That(() => new Subject(null!, "cookie"), Throws.InstanceOf<ArgumentNullException>());
+        Assert.That(() => new Subject("recipe", null!), Throws.InstanceOf<ArgumentNullException>());
+    }
+
+    [Test]
+    public void EqualityOperator_Should_HandleNullOperands()
+    {
+        var urn = new Subject("recipe", "cookie");
+
+        Assert.That(urn == null, Is.False);
+        Assert.That(null == urn, Is.False);
+        Assert.That((URN?)null == (URN?)null, Is.True);
+        Assert.That(urn != null, Is.True);
+    }
+
+    [Test]
+    public void TryParseParts_Should_ReturnPartsForAValidUrn()
+    {
+        bool ok = Subject.TryParts("urn:iso3166:US", out string? nid, out string? nss);
+
+        Assert.That(ok, Is.True);
+        Assert.That(nid, Is.EqualTo("iso3166"));
+        Assert.That(nss, Is.EqualTo("US"));
+    }
+
+    [Test]
+    public void TryParseParts_Should_ReturnFalseForInvalidOrNullInput()
+    {
+        Assert.That(Subject.TryParts("not a urn", out _, out _), Is.False);
+        Assert.That(Subject.TryParts(null, out string? nid, out string? nss), Is.False);
+        Assert.That(nid, Is.Null);
+        Assert.That(nss, Is.Null);
     }
 }
