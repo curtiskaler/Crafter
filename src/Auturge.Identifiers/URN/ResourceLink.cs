@@ -30,4 +30,7 @@ public class ResourceLink<T>(Reference<T> reference, Uri link)
 
     /// <inheritdoc/>
     public override int GetHashCode() => HashCode.Combine(base.GetHashCode(), Link);
+
+    /// <inheritdoc/>
+    public override bool Equals(object? obj) => Equals(obj as ResourceLink<T>);
 }
