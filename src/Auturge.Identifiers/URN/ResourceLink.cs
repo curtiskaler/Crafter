@@ -18,8 +18,11 @@ public class ResourceLink<T>(Reference<T> reference, Uri link)
     public Uri Link { get; } = link ?? throw new ArgumentNullException(nameof(link));
 
     /// <inheritdoc/>
-    public bool Equals(ResourceLink<T>? other) => Equals((object?)other);
+    public bool Equals(ResourceLink<T>? other) => base.Equals((object?)other);
 
+    /// <inheritdoc/>
+    public override bool Equals(object? obj) => base.Equals(obj);
+    
     // Reference<T>.Equals(object) has already confirmed the runtime types match before
     // dispatching here; the pattern guard keeps it correct if called directly.
     /// <inheritdoc/>
@@ -30,7 +33,4 @@ public class ResourceLink<T>(Reference<T> reference, Uri link)
 
     /// <inheritdoc/>
     public override int GetHashCode() => HashCode.Combine(base.GetHashCode(), Link);
-
-    /// <inheritdoc/>
-    public override bool Equals(object? obj) => Equals(obj as ResourceLink<T>);
 }
