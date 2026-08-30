@@ -12,12 +12,12 @@ namespace Auturge.Numerics.Tests;
 [TestFixture]
 public class NumberParsingTests
 {
-    private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
+    private static readonly CultureInfo _invariant = CultureInfo.InvariantCulture;
 
     [Test]
     public void Parse_PlainInteger_ProducesIntegralNumber()
     {
-        Number number = Number.Parse("12345", Invariant);
+        Number number = Number.Parse("12345", _invariant);
 
         Assert.Multiple(() =>
         {
@@ -29,7 +29,7 @@ public class NumberParsingTests
     [Test]
     public void Parse_DecimalValue_KeepsFractionalDigits()
     {
-        Assert.That(Number.Parse("3.14159", Invariant), Is.EqualTo(new Number(new BigInteger(314159), 5)));
+        Assert.That(Number.Parse("3.14159", _invariant), Is.EqualTo(new Number(new BigInteger(314159), 5)));
     }
 
     [Test]
@@ -37,8 +37,8 @@ public class NumberParsingTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(Number.Parse("007", Invariant), Is.EqualTo(new Number(7L)));
-            Assert.That(Number.Parse("2.500", Invariant), Is.EqualTo(new Number(new BigInteger(25), 1)));
+            Assert.That(Number.Parse("007", _invariant), Is.EqualTo(new Number(7L)));
+            Assert.That(Number.Parse("2.500", _invariant), Is.EqualTo(new Number(new BigInteger(25), 1)));
         });
     }
 
@@ -47,15 +47,15 @@ public class NumberParsingTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(Number.Parse("-42.5", Invariant), Is.EqualTo(new Number(new BigInteger(-425), 1)));
-            Assert.That(Number.Parse("+42.5", Invariant), Is.EqualTo(new Number(new BigInteger(425), 1)));
+            Assert.That(Number.Parse("-42.5", _invariant), Is.EqualTo(new Number(new BigInteger(-425), 1)));
+            Assert.That(Number.Parse("+42.5", _invariant), Is.EqualTo(new Number(new BigInteger(425), 1)));
         });
     }
 
     [Test]
     public void Parse_WithGroupSeparators_StripsThemWhenAllowThousandsIsSet()
     {
-        Assert.That(Number.Parse("1,234,567", Invariant), Is.EqualTo(new Number(1_234_567L)));
+        Assert.That(Number.Parse("1,234,567", _invariant), Is.EqualTo(new Number(1_234_567L)));
     }
 
     [Test]
@@ -79,7 +79,7 @@ public class NumberParsingTests
     [TestCase("   ")]
     public void Parse_NullEmptyOrWhitespace_ThrowsArgumentException(string? value)
     {
-        Assert.That(() => Number.Parse(value!, Invariant), Throws.InstanceOf<ArgumentException>());
+        Assert.That(() => Number.Parse(value!, _invariant), Throws.InstanceOf<ArgumentException>());
     }
 
     [TestCase("abc")]
@@ -87,13 +87,13 @@ public class NumberParsingTests
     [TestCase("12x")]
     public void Parse_NonNumericText_ThrowsArgumentException(string value)
     {
-        Assert.That(() => Number.Parse(value, Invariant), Throws.InstanceOf<ArgumentException>());
+        Assert.That(() => Number.Parse(value, _invariant), Throws.InstanceOf<ArgumentException>());
     }
 
     [Test]
     public void TryParse_OnValidInput_ReturnsTrueAndValue()
     {
-        bool ok = Number.TryParse("-0.75", Invariant, out Number result);
+        bool ok = Number.TryParse("-0.75", _invariant, out Number result);
 
         Assert.Multiple(() =>
         {
@@ -109,7 +109,7 @@ public class NumberParsingTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(Number.TryParse(value, Invariant, out Number result), Is.False);
+            Assert.That(Number.TryParse(value, _invariant, out Number result), Is.False);
             Assert.That(result, Is.EqualTo(default(Number)));
         });
     }
@@ -119,7 +119,7 @@ public class NumberParsingTests
     {
         ReadOnlySpan<char> span = "987.6".AsSpan();
 
-        Assert.That(Number.Parse(span, Invariant), Is.EqualTo(Number.Parse("987.6", Invariant)));
+        Assert.That(Number.Parse(span, _invariant), Is.EqualTo(Number.Parse("987.6", _invariant)));
     }
 
     [Test]
@@ -128,8 +128,8 @@ public class NumberParsingTests
     {
         foreach (string text in new[] { "0", "1", "-1", "12345", "0.001", "-9999.9999" })
         {
-            Number parsed = Number.Parse(text, Invariant);
-            Assert.That(Number.Parse(parsed.ToString(), Invariant), Is.EqualTo(parsed), $"round-trip of {text}");
+            Number parsed = Number.Parse(text, _invariant);
+            Assert.That(Number.Parse(parsed.ToString(), _invariant), Is.EqualTo(parsed), $"round-trip of {text}");
         }
     }
 }
