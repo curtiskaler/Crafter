@@ -4,6 +4,8 @@
     </Folder>
     <Folder Name="/wiki/features/">
         <File Path="wiki/features/configuration.md" />
+        <File Path="wiki/features/numerics.md" />
+        <File Path="wiki/features/quantity.md" />
         <File Path="wiki/features/recipe model.md" />
         <File Path="wiki/features/urn references.md" />
     </Folder>
