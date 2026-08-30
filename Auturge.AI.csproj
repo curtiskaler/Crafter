@@ -26,11 +26,12 @@ so that they are viewable/editable in IDEs like Rider or VS.
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include=".ai\rules\" />
       <Folder Include=".claude\rules\" />
     </ItemGroup>
 
     <ItemGroup>
+      <Content Include=".ai\rules\comments.md" />
+      <Content Include=".ai\rules\comments.mdc" />
       <Content Include=".claude\settings.local.json" />
     </ItemGroup>
 </Project>

@@ -55,3 +55,7 @@ Do not write legacy framework code. Follow these modern C# patterns strictly:
   before implementing.
 - After a session where you learned something non-trivial, ask to
   update memory files.
+
+## Comments
+- Comments are a description of the code as-built, not a history log.
+- NEVER include references to conversations.

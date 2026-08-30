@@ -1,0 +1,6 @@
+---
+description: Enforces code commenting standards across the project
+alwaysApply: true
+---
+
+@comments.md
