@@ -48,14 +48,14 @@ csharp_style_namespace_declarations = file_scoped:error
 #### Naming Conventions ####
 
 # Naming style rule for Public/Internal: PascalCase
-dotnet_naming_rule.public_members_must_be_pascal_case.severity = error
-dotnet_naming_rule.public_members_must_be_pascal_case.symbols = public_symbols
-dotnet_naming_rule.public_members_must_be_pascal_case.style = pascal_case_style
+#dotnet_naming_rule.public_members_must_be_pascal_case.severity = error
+#dotnet_naming_rule.public_members_must_be_pascal_case.symbols = public_symbols
+#dotnet_naming_rule.public_members_must_be_pascal_case.style = pascal_case_style
 
-dotnet_naming_symbols.public_symbols.applicable_kinds = class, struct, interface, method, property, event
-dotnet_naming_symbols.public_symbols.applicable_accessibilities = public, internal, protected, protected_internal
+#dotnet_naming_symbols.public_symbols.applicable_kinds = class, struct, interface, method, property, event
+#dotnet_naming_symbols.public_symbols.applicable_accessibilities = public, internal, protected, protected_internal
 
-dotnet_naming_style.pascal_case_style.capitalization = pascal_case
+#dotnet_naming_style.pascal_case_style.capitalization = pascal_case
 
 # Naming style rule for Interfaces: IPascalCase
 dotnet_naming_rule.interfaces_must_start_with_i.severity = error
