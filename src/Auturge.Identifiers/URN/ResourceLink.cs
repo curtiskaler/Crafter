@@ -12,6 +12,7 @@ namespace Auturge.Identifiers;
 [DebuggerDisplay("{DisplayName} : {Link}")]
 public class ResourceLink<T>(Reference<T> reference, Uri link)
     : Reference<T>(reference), IEquatable<ResourceLink<T>>
+    where T : notnull
 {
     /// <summary>Where the resource can be retrieved.</summary>
     public Uri Link { get; } = link ?? throw new ArgumentNullException(nameof(link));

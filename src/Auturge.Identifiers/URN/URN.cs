@@ -1,16 +1,13 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace Auturge.Identifiers;
 
 /// <summary>
-/// Uniform Resource Name (URN)
-/// <para/>
-/// A URN is a type of Uniform Resource Identifier (URI) that names a resource by a unique, persistent label,
-/// but it does not tell you where the resource is located or how to access it.
-/// <para/>
-/// Abstract so that you can (MUST!) define it within your own namespace.
+/// A Uniform Resource Name — a persistent, location-independent identifier of the form
+/// <c>urn:&lt;nid&gt;:&lt;nss&gt;</c>. Abstract: derive it within your own namespace.
 /// </summary>
 [DebuggerDisplay("urn:{NID}:{NSS}")]
 public abstract partial class URN : Uri, IEquatable<URN>
@@ -32,19 +29,10 @@ public abstract partial class URN : Uri, IEquatable<URN>
     [GeneratedRegex(@"^(?:[-A-Za-z0-9._~!$&'()*+,;=:@/]|%[0-9A-Fa-f]{2})+$", _urnRegexOptions)]
     private static partial Regex NssRegex();
 
-    /// <summary>
-    /// Namespace Identifier (NID)
-    /// <para/>
-    /// Names a category or domain of data. Case-insensitive; unique across the entire "urn" scheme.
-    /// </summary>
+    /// <summary>Namespace Identifier — the category the name belongs to. Compared case-insensitively (ASCII).</summary>
     public string NID { get; }
 
-    /// <summary>
-    /// Namespace Specific String (NSS)
-    /// <para/>
-    /// The label within the namespace. Combined with the <see cref="NID"/> it identifies the
-    /// resource uniquely. Compared case-sensitively.
-    /// </summary>
+    /// <summary>Namespace Specific String — the name within the <see cref="NID"/>. Compared case-sensitively.</summary>
     public string NSS { get; }
 
     /// <summary>
@@ -73,10 +61,7 @@ public abstract partial class URN : Uri, IEquatable<URN>
         ArgumentNullException.ThrowIfNull(s);
         if (!UrnRegex().IsMatch(s))
         {
-            throw new FormatException(
-                $"'{s}' is not a valid URN. Expected 'urn:<nid>:<nss>' where <nid> is 2-32 "
-                + "alphanumerics with internal hyphens and <nss> is one or more unreserved, "
-                + "sub-delimiter, or percent-encoded characters (RFC 8141).");
+            throw new FormatException(string.Format(CultureInfo.CurrentCulture, RS.Urn_Invalid, s));
         }
 
         return s;
@@ -88,15 +73,12 @@ public abstract partial class URN : Uri, IEquatable<URN>
         ArgumentNullException.ThrowIfNull(nss);
         if (!NidRegex().IsMatch(nid))
         {
-            throw new FormatException(
-                $"'{nid}' is not a valid URN NID: 2-32 characters, alphanumeric with internal hyphens (RFC 8141).");
+            throw new FormatException(string.Format(CultureInfo.CurrentCulture, RS.Urn_InvalidNid, nid));
         }
 
         if (!NssRegex().IsMatch(nss))
         {
-            throw new FormatException(
-                $"'{nss}' is not a valid URN NSS: one or more unreserved, sub-delimiter, or "
-                + "percent-encoded characters (RFC 8141).");
+            throw new FormatException(string.Format(CultureInfo.CurrentCulture, RS.Urn_InvalidNss, nss));
         }
 
         return $"urn:{nid}:{nss}";

@@ -200,4 +200,39 @@ public class URNTests
         Assert.That(nid, Is.Null);
         Assert.That(nss, Is.Null);
     }
+
+    [Test]
+    public void Ctor_Should_ComposeFromNidAndNss()
+    {
+        long id = Flake.NewFlake();
+
+        var urn = new Subject("recipe", $"bongo:{id}");
+
+        Assert.That(urn.NID, Is.EqualTo("recipe"));
+        Assert.That(urn.ToString(), Is.EqualTo($"urn:recipe:bongo:{id}"));
+    }
+
+    [Test]
+    public void Reference_Should_ExposeAUrnResource()
+    {
+        var urn = new Subject("recipe", "cookies");
+        var reference = new Reference<Subject>("Chocolate Chip Cookies", urn);
+
+        Assert.That(reference.Resource, Is.SameAs(urn));
+        Assert.That(reference.DisplayName, Is.EqualTo("Chocolate Chip Cookies"));
+    }
+
+    [Test]
+    public void ResourceLink_Should_ExposeAUrnResourceAndLink()
+    {
+        var urn = new Subject("recipe", "cookies");
+        var reference = new Reference<Subject>("Chocolate Chip Cookies", urn);
+        var hyperlink = new Uri("http://localhost:8080/foundation/hub");
+
+        var link = new ResourceLink<Subject>(reference, hyperlink);
+
+        Assert.That(link.DisplayName, Is.EqualTo("Chocolate Chip Cookies"));
+        Assert.That(link.Resource, Is.SameAs(urn));
+        Assert.That(link.Link, Is.EqualTo(hyperlink));
+    }
 }

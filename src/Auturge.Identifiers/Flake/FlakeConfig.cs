@@ -1,4 +1,5 @@
-﻿using Auturge.Identifiers.Internal;
+﻿using System.Globalization;
+using Auturge.Identifiers.Internal;
 
 namespace Auturge.Identifiers;
 
@@ -113,8 +114,7 @@ public readonly struct FlakeConfig : IEquatable<FlakeConfig>
     {
         if (epoch < 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(epoch), epoch,
-                "epoch must be a non-negative Unix-millisecond value.");
+            throw new ArgumentOutOfRangeException(nameof(epoch), epoch, RS.FlakeConfig_EpochNegative);
         }
 
         // The generator needs at least one sequence bit to hand out more than one id
@@ -122,8 +122,7 @@ public readonly struct FlakeConfig : IEquatable<FlakeConfig>
         // second call within a millisecond.
         if (sequenceBits < 1)
         {
-            throw new ArgumentOutOfRangeException(nameof(sequenceBits), sequenceBits,
-                "at least one sequence bit is required.");
+            throw new ArgumentOutOfRangeException(nameof(sequenceBits), sequenceBits, RS.FlakeConfig_SequenceBitsRequired);
         }
 
         const int signBit = 1;
@@ -131,8 +130,8 @@ public readonly struct FlakeConfig : IEquatable<FlakeConfig>
         if (timestampBits < _minimumTimestampBits)
         {
             throw new ArgumentException(
-                $"sequence ({sequenceBits}) + machine ({machineBits}) + datacenter ({datacenterBits}) bits leave "
-                + $"only {timestampBits} for the timestamp; at least {_minimumTimestampBits} are required.",
+                string.Format(CultureInfo.CurrentCulture, RS.FlakeConfig_TimestampBitsTooFew,
+                    sequenceBits, machineBits, datacenterBits, timestampBits, _minimumTimestampBits),
                 nameof(sequenceBits));
         }
     }

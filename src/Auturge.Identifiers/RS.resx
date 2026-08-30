@@ -3,7 +3,7 @@
 <root>
     <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
         <xsd:element name="root" msdata:IsDataSet="true">
-            
+
         </xsd:element>
     </xsd:schema>
     <resheader name="resmimetype">
@@ -18,4 +18,40 @@
     <resheader name="writer">
         <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
     </resheader>
+    <data name="Identifiers_DatacenterIdOutOfRange" xml:space="preserve">
+        <value>The datacenter id must be between 0 and {0}.</value>
+    </data>
+    <data name="Identifiers_MachineIdOutOfRange" xml:space="preserve">
+        <value>The machine id must be between 0 and {0}.</value>
+    </data>
+    <data name="Identifiers_SequenceOutOfRange" xml:space="preserve">
+        <value>The sequence must be between 0 and {0}.</value>
+    </data>
+    <data name="Flake_TimestampOutOfRange" xml:space="preserve">
+        <value>The timestamp is outside the range the configured timestamp bits can represent.</value>
+    </data>
+    <data name="FlakeConfig_EpochNegative" xml:space="preserve">
+        <value>The epoch must be a non-negative Unix-millisecond value.</value>
+    </data>
+    <data name="FlakeConfig_SequenceBitsRequired" xml:space="preserve">
+        <value>At least one sequence bit is required.</value>
+    </data>
+    <data name="FlakeConfig_TimestampBitsTooFew" xml:space="preserve">
+        <value>The sequence ({0}), machine ({1}), and datacenter ({2}) bits leave only {3} for the timestamp; at least {4} are required.</value>
+    </data>
+    <data name="FlakeGenerator_ClockMovedBackwards" xml:space="preserve">
+        <value>The clock moved backwards by {0} ms (now {1}, last id used {2}); refusing to generate ids that could collide with ones already issued.</value>
+    </data>
+    <data name="FlakeGenerator_ClockOutsideConfigWindow" xml:space="preserve">
+        <value>The clock reads {0} ms, outside the range this configuration can encode ({1} to {2} ms, rollover {3}); it is before the epoch or past the rollover point.</value>
+    </data>
+    <data name="Urn_Invalid" xml:space="preserve">
+        <value>'{0}' is not a valid URN. Expected 'urn:&lt;nid&gt;:&lt;nss&gt;' where &lt;nid&gt; is 2-32 alphanumerics with internal hyphens and &lt;nss&gt; is one or more unreserved, sub-delimiter, or percent-encoded characters (RFC 8141).</value>
+    </data>
+    <data name="Urn_InvalidNid" xml:space="preserve">
+        <value>'{0}' is not a valid URN NID; expected 2-32 alphanumerics with internal hyphens (RFC 8141).</value>
+    </data>
+    <data name="Urn_InvalidNss" xml:space="preserve">
+        <value>'{0}' is not a valid URN NSS; expected one or more unreserved, sub-delimiter, or percent-encoded characters (RFC 8141).</value>
+    </data>
 </root>

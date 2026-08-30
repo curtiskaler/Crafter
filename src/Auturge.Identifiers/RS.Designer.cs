@@ -7,10 +7,12 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
+#nullable disable
+
 namespace Auturge.Identifiers {
     using System;
-    
-    
+
+
     /// <summary>
     ///   A strongly-typed resource class, for looking up localized strings, etc.
     /// </summary>
@@ -22,15 +24,15 @@ namespace Auturge.Identifiers {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class RS {
-        
+
         private static global::System.Resources.ResourceManager resourceMan;
-        
+
         private static global::System.Globalization.CultureInfo resourceCulture;
-        
+
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
         internal RS() {
         }
-        
+
         /// <summary>
         ///   Returns the cached ResourceManager instance used by this class.
         /// </summary>
@@ -44,7 +46,7 @@ namespace Auturge.Identifiers {
                 return resourceMan;
             }
         }
-        
+
         /// <summary>
         ///   Overrides the current thread's CurrentUICulture property for all
         ///   resource lookups using this strongly typed resource class.
@@ -56,6 +58,114 @@ namespace Auturge.Identifiers {
             }
             set {
                 resourceCulture = value;
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The datacenter id must be between 0 and {0}..
+        /// </summary>
+        internal static string Identifiers_DatacenterIdOutOfRange {
+            get {
+                return ResourceManager.GetString("Identifiers_DatacenterIdOutOfRange", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The machine id must be between 0 and {0}..
+        /// </summary>
+        internal static string Identifiers_MachineIdOutOfRange {
+            get {
+                return ResourceManager.GetString("Identifiers_MachineIdOutOfRange", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The sequence must be between 0 and {0}..
+        /// </summary>
+        internal static string Identifiers_SequenceOutOfRange {
+            get {
+                return ResourceManager.GetString("Identifiers_SequenceOutOfRange", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The timestamp is outside the range the configured timestamp bits can represent..
+        /// </summary>
+        internal static string Flake_TimestampOutOfRange {
+            get {
+                return ResourceManager.GetString("Flake_TimestampOutOfRange", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The epoch must be a non-negative Unix-millisecond value..
+        /// </summary>
+        internal static string FlakeConfig_EpochNegative {
+            get {
+                return ResourceManager.GetString("FlakeConfig_EpochNegative", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to At least one sequence bit is required..
+        /// </summary>
+        internal static string FlakeConfig_SequenceBitsRequired {
+            get {
+                return ResourceManager.GetString("FlakeConfig_SequenceBitsRequired", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The sequence ({0}), machine ({1}), and datacenter ({2}) bits leave only {3} for the timestamp; at least {4} are required..
+        /// </summary>
+        internal static string FlakeConfig_TimestampBitsTooFew {
+            get {
+                return ResourceManager.GetString("FlakeConfig_TimestampBitsTooFew", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The clock moved backwards by {0} ms (now {1}, last id used {2}); refusing to generate ids that could collide with ones already issued..
+        /// </summary>
+        internal static string FlakeGenerator_ClockMovedBackwards {
+            get {
+                return ResourceManager.GetString("FlakeGenerator_ClockMovedBackwards", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The clock reads {0} ms, outside the range this configuration can encode ({1} to {2} ms, rollover {3}); it is before the epoch or past the rollover point..
+        /// </summary>
+        internal static string FlakeGenerator_ClockOutsideConfigWindow {
+            get {
+                return ResourceManager.GetString("FlakeGenerator_ClockOutsideConfigWindow", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is not a valid URN. Expected &apos;urn:&lt;nid&gt;:&lt;nss&gt;&apos; where &lt;nid&gt; is 2-32 alphanumerics with internal hyphens and &lt;nss&gt; is one or more unreserved, sub-delimiter, or percent-encoded characters (RFC 8141)..
+        /// </summary>
+        internal static string Urn_Invalid {
+            get {
+                return ResourceManager.GetString("Urn_Invalid", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is not a valid URN NID; expected 2-32 alphanumerics with internal hyphens (RFC 8141)..
+        /// </summary>
+        internal static string Urn_InvalidNid {
+            get {
+                return ResourceManager.GetString("Urn_InvalidNid", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is not a valid URN NSS; expected one or more unreserved, sub-delimiter, or percent-encoded characters (RFC 8141)..
+        /// </summary>
+        internal static string Urn_InvalidNss {
+            get {
+                return ResourceManager.GetString("Urn_InvalidNss", resourceCulture);
             }
         }
     }
