@@ -1,4 +1,4 @@
-﻿using Auturge.Numerics;
+using Auturge.Numerics;
 using Auturge.Quantity.Exceptions;
 
 namespace Auturge.Quantity;

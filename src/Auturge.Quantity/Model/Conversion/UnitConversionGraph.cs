@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
-using Auturge.Numerics;
 
 // ReSharper disable InconsistentNaming
 
@@ -109,11 +108,12 @@ public class UnitConversionGraph<T> : DirectedGraph<Unit> where T : INumber<T>, 
         => (T number) =>
         {
             decimal dec = number.ToDecimal(CultureInfo.CurrentCulture);
-            var frac = new Fraction<decimal>(dec);
+            // Rational.FromDecimal is exact (decimal already IS a scaled integer, via
+            // decimal.GetBits), and T.CreateChecked bridges the numerator/denominator straight to T.
+            Rational frac = Rational.FromDecimal(dec);
 
-            // how do we do division
-            T topT = new Number(frac.Numerator).ToType<T>();
-            T bottomT = new Number(frac.Denominator).ToType<T>();
+            T topT = T.CreateChecked(frac.Numerator);
+            T bottomT = T.CreateChecked(frac.Denominator);
 
             T top = nConversion.Conversion.Execute(topT);
             T bottom = dConversion.Conversion.Execute(bottomT);
@@ -224,11 +224,3 @@ public class UnitConversionGraph<T> : DirectedGraph<Unit> where T : INumber<T>, 
         return true;
     }
 }
-
-// public class UnitConversionGraph : UnitConversionGraph<Number>
-// {
-//     internal UnitConversionGraph(List<UnitConversion> conversions) : base(conversions
-//         .Select(UnitConversion<Number> (it) => it).ToList())
-//     {
-//     }
-// }

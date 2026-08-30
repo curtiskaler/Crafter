@@ -21,10 +21,9 @@ public partial struct Number
         if (number.IsNegative)
             stringBuilder.Append(info.NegativeSign);
 
-        // RawValue's decimal digits ARE the significand's digit string, so ask
-        // BigInteger for them directly instead of peeling them off one at a time
-        // via repeated division/modulus (which was O(digits) BigInteger divisions
-        // per digit produced, i.e. O(digits^2) overall for the whole number).
+        // RawValue's decimal digits ARE the significand's digit string, so ask BigInteger for
+        // them directly — peeling them off one at a time via repeated division/modulus is
+        // O(digits) BigInteger divisions per digit produced, i.e. O(digits^2) overall.
         string digits = number.RawValue.ToString(CultureInfo.InvariantCulture);
         int digitCount = number.DigitCount;
         int decimalOffset = number.DecimalOffset;

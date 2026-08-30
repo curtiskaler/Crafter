@@ -1,7 +1,6 @@
 ﻿// ReSharper disable MemberCanBePrivate.Global
 
 using Auturge.Identifiers;
-using Auturge.Numerics;
 
 namespace Auturge.Quantity;
 
@@ -11,23 +10,29 @@ public sealed class Unit : IEquatable<Unit>, IHaveNameAndSymbol, IHaveSynonyms<U
 
     public long Id { get; }
 
-    // TODO: change the conversion to use this
-    // public Conversion ToBase { get; internal set; }
-    
     /// <summary>
     /// The unit base.
     /// </summary>
     public Unit? Base { get; internal init; }
-    
+
     /// <summary>
     /// The factor multiplied into the base to get this unit.
     /// </summary>
-    public Number Factor { get; internal init; } = new(1.0);
-    
+    public Rational Factor { get; internal init; } = Rational.One;
+
     /// <summary>
     /// The factor the base unit should be divided by to get one of this unit.
     /// </summary>
-    public Number Divisor { get; internal init; } = new(1.0);
+    public Rational Divisor { get; internal init; } = Rational.One;
+
+    /// <summary>
+    /// This unit's exact ratio to its <see cref="Base"/> (1 of this unit = ToBase of Base).
+    /// Factor and Divisor are two independently-settable properties — exactly one of them deviates
+    /// from its default of 1 per unit (e.g. Ounces sets only Divisor, Feet sets only Factor,
+    /// AvoirdupoisPounds sets Factor to the fractional 0.45359237 directly) — but consumers that
+    /// just want "the ratio" use this instead of combining both themselves.
+    /// </summary>
+    internal Rational ToBase => Factor / Divisor;
 
     /// <summary>
     /// The definition of the unit, in terms of the exponents of its base units.
@@ -176,25 +181,12 @@ public sealed class Unit : IEquatable<Unit>, IHaveNameAndSymbol, IHaveSynonyms<U
 
     #region Arithmetic Operators
 
-    public static Quantity operator *(Number factor, Unit baseUnit)
-    {
-        var found = Units.TryFind(
-            x => x.Dimension == baseUnit.Dimension &&
-                 (Math.Abs(x.Factor - factor) < .000001 || Math.Abs((double)x.Divisor - (1 / factor)) < .000001), out var unit);
-        if (!found || unit == null)
-        {
-            unit = baseUnit;
-        }
-
-        return new Quantity(factor, unit);
-    }
-
-    public static Unit operator *(SIPrefix prefix, Unit baseUnit)
+    public static Unit operator *(SIPrefix<Rational> prefix, Unit baseUnit)
     {
         var displayName = prefix.DisplayName + baseUnit.DisplayName;
         var symbol = prefix.Symbol + baseUnit.Symbol;
-        Number factor = prefix.Factor * baseUnit.Factor;
-        Number divisor = prefix.Divisor * baseUnit.Divisor;
+        Rational prefixRatio = prefix.Factor / prefix.Divisor;
+        Rational combined = prefixRatio * baseUnit.ToBase;
 
         // Do we already have such a beast in the cache?
         var found = Units.TryFind(
@@ -208,8 +200,7 @@ public sealed class Unit : IEquatable<Unit>, IHaveNameAndSymbol, IHaveSynonyms<U
         return new Unit(Flake.NewFlake(), displayName, symbol, baseUnit.Dimension)
         {
             Base = baseUnit,
-            Factor = factor,
-            Divisor = divisor
+            Factor = combined
         };
     }
 

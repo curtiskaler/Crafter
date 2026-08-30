@@ -16,8 +16,8 @@ public partial struct Number : IFloatingPoint<Number>
     public static Number Tau =>
         Parse("6.28318530717958647692528676655900576839433879875021", NumberFormatInfo.InvariantInfo);
 
-    // DecimalOffset is a plain int now (see Number.cs), but these members are specified in
-    // terms of BigInteger-style byte/bit counts, so wrap it briefly to reuse that math.
+    // DecimalOffset is a plain int, but these members are specified in terms of BigInteger-style
+    // byte/bit counts, so wrap it briefly to reuse that math.
     public int GetExponentByteCount() => new BigInteger(DecimalOffset).GetByteCount();
 
     public int GetExponentShortestBitLength() => Convert.ToInt32(new BigInteger(DecimalOffset).GetBitLength());
