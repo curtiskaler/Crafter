@@ -69,7 +69,7 @@ public partial struct Number
             significand = -significand;
         }
 
-        Sign = IsNegative ? -1 : this == Zero ? 0 : 1;
+        Sign = significand.IsZero ? 0 : IsNegative ? -1 : 1;
 
         _digitCount = CountDigits(significand);
         TrimRight(ref exponent, ref significand, ref _digitCount);
