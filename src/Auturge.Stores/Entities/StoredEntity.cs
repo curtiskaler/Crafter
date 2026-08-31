@@ -4,9 +4,11 @@ namespace Auturge.Stores;
 
 
 /// <summary>
-/// A typical entity for storage, which does not include audit or soft-delete.
+/// Base class for a stored entity: a primary key plus an optimistic-concurrency token.
+/// No audit or soft-delete &#8212; use <see cref="AuditEntity{TKey,TUser}"/> for those.
 /// </summary>
-/// <param name="id"></param>
+/// <param name="id">The primary key. Must not be <see langword="null"/>.</param>
+/// <typeparam name="TKey">The non-nullable primary-key type.</typeparam>
 public abstract class StoredEntity<TKey>(TKey id)
     : IStoredEntity<TKey>, IConcurrentEntity, IEquatable<StoredEntity<TKey>> where TKey : notnull
 {
@@ -18,6 +20,7 @@ public abstract class StoredEntity<TKey>(TKey id)
 
     #region Equality
 
+    /// <inheritdoc/>
     public bool Equals(StoredEntity<TKey>? other)
     {
         if (other is null) return false;
@@ -27,6 +30,7 @@ public abstract class StoredEntity<TKey>(TKey id)
         return Id.Equals(other.Id);
     }
 
+    /// <inheritdoc/>
     public override bool Equals(object? obj)
     {
         if (obj is null) return false;
@@ -35,8 +39,10 @@ public abstract class StoredEntity<TKey>(TKey id)
         return Equals((StoredEntity<TKey>)obj);
     }
 
+    /// <inheritdoc/>
     public override int GetHashCode() => HashCode.Combine(Id);
 
+    /// <summary> Equality by <see cref="Id"/>. </summary>
     public static bool operator ==(StoredEntity<TKey>? lhs, StoredEntity<TKey>? rhs)
     {
         if (lhs is null && rhs is null) return true;
@@ -44,20 +50,23 @@ public abstract class StoredEntity<TKey>(TKey id)
         return lhs.Equals(rhs);
     }
 
+    /// <summary> Inequality by <see cref="Id"/>. </summary>
     public static bool operator !=(StoredEntity<TKey>? a, StoredEntity<TKey>? b) => !(a == b);
 
     #endregion Equality
 }
 
 /// <summary>
-/// A typical entity for storage. Does not include audit or soft-delete.
+/// Base class for a stored entity keyed by <see cref="long"/>. When no id is supplied a new
+/// <see cref="Flake"/> is minted. No audit or soft-delete &#8212; use <see cref="AuditEntity{TUser}"/> for those.
 /// </summary>
-/// <param name="id"></param>
+/// <param name="id">The primary key, or <see langword="null"/> to mint a new <see cref="Flake"/>.</param>
 public abstract class StoredEntity(long? id = null) : StoredEntity<long>(id ?? Flake.NewFlake())
     , IEquatable<StoredEntity>
 {
     #region Equality
 
+    /// <inheritdoc cref="StoredEntity{TKey}.Equals(StoredEntity{TKey})"/>
     public virtual bool Equals(StoredEntity? other)
     {
         if (other is null) return false;
@@ -67,6 +76,7 @@ public abstract class StoredEntity(long? id = null) : StoredEntity<long>(id ?? F
         return base.Equals(other);
     }
 
+    /// <inheritdoc/>
     public override bool Equals(object? obj)
     {
         if (obj is null) return false;
@@ -75,8 +85,10 @@ public abstract class StoredEntity(long? id = null) : StoredEntity<long>(id ?? F
         return Equals((StoredEntity)obj);
     }
 
+    /// <inheritdoc/>
     public override int GetHashCode() => HashCode.Combine(Id);
 
+    /// <summary> Equality by <see cref="StoredEntity{TKey}.Id"/>. </summary>
     public static bool operator ==(StoredEntity? lhs, StoredEntity? rhs)
     {
         if (lhs is null && rhs is null) return true;
@@ -84,6 +96,7 @@ public abstract class StoredEntity(long? id = null) : StoredEntity<long>(id ?? F
         return lhs.Equals(rhs);
     }
 
+    /// <summary> Inequality by <see cref="StoredEntity{TKey}.Id"/>. </summary>
     public static bool operator !=(StoredEntity? a, StoredEntity? b) => !(a == b);
 
     #endregion Equality
