@@ -16,11 +16,7 @@ systems, restaurant / food-service, and pharmaceutical formulation design.
   (`Flake`) and URN-based names & references.
 - [Stores](features/stores.md) — `Auturge.Stores`: composable entity
   archetypes, the `IStore` repository contract, and `InMemoryStore`.
-- [Recipe model](features/recipe%20model.md)
-- [URN references](features/urn%20references.md)
-- [Configuration](features/configuration.md)
 
 ## Development
 
-- [Dev setup](_dev/dev-setup.md)
 - [Licenses](_dev/licenses.md)

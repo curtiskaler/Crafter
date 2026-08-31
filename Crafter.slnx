@@ -3,11 +3,12 @@
         <File Path="wiki/readme.md" />
     </Folder>
     <Folder Name="/wiki/features/">
+        <File Path="wiki/features/identifiers.md" />
         <File Path="wiki/features/numerics.md" />
         <File Path="wiki/features/quantity.md" />
+        <File Path="wiki/features/stores.md" />
     </Folder>
     <Folder Name="/wiki/_dev/">
-        <File Path="wiki/_dev/dev-setup.md" />
         <File Path="wiki/_dev/licenses.md" />
     </Folder>
     <Folder Name="/working files/" />
