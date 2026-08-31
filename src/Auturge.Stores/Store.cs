@@ -9,6 +9,9 @@ public abstract class Store<TEntity> : IStore<TEntity>
 {
     private readonly IStore<TEntity> _backend;
 
+    /// <summary> Creates a repository over the given backend. </summary>
+    /// <param name="backend">The store implementation every operation delegates to.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="backend"/> is <see langword="null"/>.</exception>
     protected Store(IStore<TEntity> backend)
     {
         ArgumentNullException.ThrowIfNull(backend);
@@ -63,6 +66,9 @@ public abstract class Store<TEntity, TKey> : Store<TEntity>, IStore<TEntity, TKe
 {
     private readonly IStore<TEntity, TKey> _backend;
 
+    /// <summary> Creates a repository over the given backend. </summary>
+    /// <param name="backend">The store implementation every operation delegates to.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="backend"/> is <see langword="null"/>.</exception>
     protected Store(IStore<TEntity, TKey> backend) : base(backend)
     {
         _backend = backend;

@@ -12,6 +12,10 @@ systems, restaurant / food-service, and pharmaceutical formulation design.
 - [Quantity](features/quantity.md) — `Auturge.Quantity` /
   `Auturge.Quantity.Numerics`: dimensional quantities, the unit library, and
   the unit-conversion engine.
+- [Identifiers](features/identifiers.md) — `Auturge.Identifiers`: Snowflake IDs
+  (`Flake`) and URN-based names & references.
+- [Stores](features/stores.md) — `Auturge.Stores`: composable entity
+  archetypes, the `IStore` repository contract, and `InMemoryStore`.
 - [Recipe model](features/recipe%20model.md)
 - [URN references](features/urn%20references.md)
 - [Configuration](features/configuration.md)

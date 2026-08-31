@@ -34,10 +34,14 @@ public abstract class AuditEntity<TKey, TUser>(TKey id, TUser? creator = default
 
     #region Equality
 
-    // Identity equality: two instances are equal iff they represent the same row (same Id).
-    // Audit/version fields are deliberately excluded so an entity still equals its pre-update self.
+    /// <summary>
+    /// Identity equality: two instances are equal when they represent the same row (same
+    /// <see cref="StoredEntity{TKey}.Id"/>). Audit and concurrency fields are deliberately excluded
+    /// so an entity still equals its pre-update self.
+    /// </summary>
     public bool Equals(AuditEntity<TKey, TUser>? other) => base.Equals(other);
 
+    /// <inheritdoc/>
     public override bool Equals(object? obj)
     {
         if (obj is null) return false;
@@ -46,8 +50,10 @@ public abstract class AuditEntity<TKey, TUser>(TKey id, TUser? creator = default
         return Equals((AuditEntity<TKey, TUser>)obj);
     }
 
+    /// <inheritdoc/>
     public override int GetHashCode() => HashCode.Combine(Id);
 
+    /// <summary> Equality by <see cref="StoredEntity{TKey}.Id"/>. </summary>
     public static bool operator ==(AuditEntity<TKey, TUser>? lhs, AuditEntity<TKey, TUser>? rhs)
     {
         if (lhs is null && rhs is null) return true;
@@ -55,6 +61,7 @@ public abstract class AuditEntity<TKey, TUser>(TKey id, TUser? creator = default
         return lhs.Equals(rhs);
     }
 
+    /// <summary> Inequality by <see cref="StoredEntity{TKey}.Id"/>. </summary>
     public static bool operator !=(AuditEntity<TKey, TUser>? a, AuditEntity<TKey, TUser>? b) => !(a == b);
 
     #endregion Equality
@@ -69,5 +76,6 @@ public abstract class AuditEntity<TKey, TUser>(TKey id, TUser? creator = default
 public abstract class AuditEntity<TUser>(long id, TUser? creator = default) : AuditEntity<long, TUser>(id, creator)
     , IEquatable<AuditEntity<TUser>>
 {
+    /// <inheritdoc cref="AuditEntity{TKey,TUser}.Equals(AuditEntity{TKey,TUser})"/>
     public bool Equals(AuditEntity<TUser>? other) => base.Equals(other);
 }
